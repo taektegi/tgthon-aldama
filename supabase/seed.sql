@@ -1,0 +1,2 @@
+-- Seed data is intentionally empty because application rows require a real auth.users record.
+-- Add test users with the local Studio UI, then create events through the application to exercise RLS.
