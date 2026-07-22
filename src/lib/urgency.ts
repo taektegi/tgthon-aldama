@@ -1,4 +1,4 @@
-export type UrgencyLevel = "none" | "overdue" | "urgent" | "today" | "soon" | "later";
+export type UrgencyLevel = "none" | "overdue" | "urgent" | "today" | "soon" | "later" | "distant";
 
 export interface Urgency {
   level: UrgencyLevel;
@@ -24,7 +24,7 @@ export function getUrgency(dueAt: string | null, now: Date = new Date()): Urgenc
 
   if (diff <= 6 * HOUR) {
     const hours = Math.max(1, Math.ceil(diff / HOUR));
-    return { level: "urgent", label: `${hours}시간 남음!!`, background: "#ffe0e0", color: "#e11d48", fontWeight: 900 };
+    return { level: "urgent", label: `${hours}시간 남음`, background: "#fdeae2", color: "#d64545", fontWeight: 800 };
   }
 
   if (diff <= DAY) {
@@ -34,8 +34,12 @@ export function getUrgency(dueAt: string | null, now: Date = new Date()): Urgenc
   const days = Math.ceil(diff / DAY);
 
   if (days <= 3) {
-    return { level: "soon", label: `D-${days}`, background: "#eef0ff", color: "#3f3fb4", fontWeight: 700 };
+    return { level: "soon", label: `D-${days}`, background: "var(--primary-pale)", color: "var(--primary-deep)", fontWeight: 700 };
   }
 
-  return { level: "later", label: `D-${days}`, background: "#f3f4f6", color: "#475569", fontWeight: 600 };
+  if (days <= 7) {
+    return { level: "later", label: `D-${days}`, background: "#f3f4f6", color: "#475569", fontWeight: 600 };
+  }
+
+  return { level: "distant", label: `D-${days}`, background: "#f3f4f6", color: "#475569", fontWeight: 600 };
 }

@@ -18,7 +18,7 @@ export function LoginForm({ next }: { next?: string }) {
     cursor: "pointer",
     fontSize: 15,
     fontWeight: active ? 800 : 600,
-    background: active ? "#5b5ce2" : "transparent",
+    background: active ? "var(--primary-deep)" : "transparent",
     color: active ? "#fff" : "#6b7280",
   });
 
@@ -69,7 +69,7 @@ export function LoginForm({ next }: { next?: string }) {
             회원가입
           </SubmitButton>
         ) : (
-          <SubmitButton className="button button-primary" formAction={signIn} pendingLabel="로그인 중..." style={{ padding: "14px 0", fontSize: 16 }}>
+          <SubmitButton className="button button-accent" formAction={signIn} pendingLabel="로그인 중..." style={{ padding: "14px 0", fontSize: 16 }}>
             로그인
           </SubmitButton>
         )}

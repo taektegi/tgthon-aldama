@@ -11,7 +11,7 @@ export default async function WelcomePage() {
   return (
     <main className="shell" style={{ padding: "72px 0 96px" }}>
       <section style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }}>
-        <p style={{ color: "#5b5ce2", fontWeight: 800, margin: 0 }}>ALDAMA · 알다마</p>
+        <p style={{ color: "var(--primary-deep)", fontWeight: 800, margin: 0 }}>ALDAMA · 알다마</p>
         <h1 style={{ fontSize: "clamp(28px, 5vw, 44px)", lineHeight: 1.2, margin: "16px 0 10px" }}>
           환영해요! 알다마는 이렇게 써요
         </h1>

@@ -11,7 +11,7 @@ export default async function HomePage() {
   return (
     <main className="shell" style={{ padding: "72px 0 96px" }}>
       <section style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }}>
-        <p style={{ color: "#5b5ce2", fontWeight: 800, margin: 0 }}>ALDAMA · 알다마</p>
+        <p style={{ color: "var(--primary-deep)", fontWeight: 800, margin: 0 }}>ALDAMA · 알다마</p>
         <h1 style={{ fontSize: "clamp(32px, 6vw, 52px)", lineHeight: 1.15, margin: "16px 0 10px" }}>
           알다마에 오신 걸 환영해요! 👋
         </h1>

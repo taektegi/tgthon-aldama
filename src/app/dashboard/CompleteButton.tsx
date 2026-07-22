@@ -28,12 +28,12 @@ export function CompleteButton({ id, isCompleted }: { id: string; isCompleted: b
   return (
     <button
       type="button"
-      className="button button-muted"
+      className={isCompleted ? "button button-muted" : "button button-primary"}
       onClick={handleClick}
       disabled={isPending}
       aria-label={isCompleted ? "미완료로 변경" : "완료 처리"}
     >
-      {isCompleted ? "✓" : "○"}
+      {isCompleted ? "되돌리기" : "완료"}
     </button>
   );
 }
