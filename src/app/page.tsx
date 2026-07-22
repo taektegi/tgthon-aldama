@@ -1,20 +1,38 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { OnboardingCarousel } from "./OnboardingCarousel";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = await createClient();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  if (claimsData?.claims) redirect("/dashboard");
+
   return (
-    <main className="shell" style={{ padding: "96px 0" }}>
-      <section className="card" style={{ padding: 48, maxWidth: 760, margin: "0 auto" }}>
+    <main className="shell" style={{ padding: "72px 0 96px" }}>
+      <section style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }}>
         <p style={{ color: "#5b5ce2", fontWeight: 800, margin: 0 }}>ALDAMA · 알다마</p>
-        <h1 style={{ fontSize: "clamp(38px, 7vw, 68px)", lineHeight: 1.05, margin: "18px 0" }}>
-          놓치기 전에,<br />마감을 한곳에.
+        <h1 style={{ fontSize: "clamp(32px, 6vw, 52px)", lineHeight: 1.15, margin: "16px 0 10px" }}>
+          알다마에 오신 걸 환영해요! 👋
         </h1>
-        <p className="muted" style={{ fontSize: 18, lineHeight: 1.7, maxWidth: 590 }}>
-          LearningX, 학교 공지, 단체 채팅에 흩어진 일정을 카드로 정리합니다.
+        <p className="muted" style={{ fontSize: 18, lineHeight: 1.7, margin: 0 }}>
+          공지 속에 숨은 마감을, 행동할 수 있는 카드로 바꿔드려요.
         </p>
-        <div style={{ display: "flex", gap: 12, marginTop: 28 }}>
-          <Link className="button button-primary" href="/login">시작하기</Link>
-          <Link className="button button-muted" href="/dashboard">일정 보드</Link>
+
+        <div style={{ margin: "36px 0" }}>
+          <OnboardingCarousel />
         </div>
+
+        <Link
+          className="button button-primary"
+          href="/signup"
+          style={{ fontSize: 17, padding: "14px 28px", display: "inline-block" }}
+        >
+          바로 회원가입하러 가기!
+        </Link>
+        <p className="muted" style={{ fontSize: 13, marginTop: 10 }}>
+          이미 계정이 있다면 로그인만 하면 돼요.
+        </p>
       </section>
     </main>
   );
