@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { parseKstLocal } from "@/lib/datetime";
 
 const rowSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -48,7 +49,7 @@ export async function saveSharedCandidates(formData: FormData) {
       subject,
       title: row.title,
       event_type: row.event_type,
-      due_at: row.due_at ? new Date(row.due_at).toISOString() : null,
+      due_at: row.due_at ? parseKstLocal(row.due_at).toISOString() : null,
       original_text: row.original_text ?? null,
       confidence: row.confidence ?? null,
     })),

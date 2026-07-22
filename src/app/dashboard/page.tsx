@@ -1,10 +1,30 @@
 import Image from "next/image";
+import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUrgency } from "@/lib/urgency";
-import { createEvent, deleteEvent, signOut } from "./actions";
+import { toKstInputValue } from "@/lib/datetime";
+import { analyzeNoticeImage, createEvent, deleteEvent, signOut, updateEvent } from "./actions";
+import { ClipboardAnalyzeButton } from "./ClipboardAnalyzeButton";
 import { CompleteButton } from "./CompleteButton";
 import { NotificationSetup } from "./NotificationSetup";
+import { StartViewButton } from "./StartViewButton";
+
+const kstDay = (iso: string) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date(iso));
+
+function monthGrid(ym: string) {
+  const [y, mo] = ym.split("-").map(Number);
+  const startDow = (new Date(Date.UTC(y, mo - 1, 1)).getUTCDay() + 6) % 7;
+  const days = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  return { y, mo, cells: [...Array(startDow).fill(null) as null[], ...Array.from({ length: days }, (_, i) => i + 1)] };
+}
+
+function shiftMonth(ym: string, delta: number) {
+  const [y, mo] = ym.split("-").map(Number);
+  const d = new Date(Date.UTC(y, mo - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
 
 function buildHero(events: Array<{ is_completed: boolean; due_at: string | null }>) {
   const now = Date.now();
@@ -32,7 +52,13 @@ const typeLabels: Record<string, string> = {
   assignment: "과제", exam: "시험", presentation: "발표", application: "신청", event: "행사", other: "기타",
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ edit?: string; add?: string; error?: string; view?: string; date?: string; m?: string }> }) {
+  const { edit: editId, add: addMode, error: errorMsg, view: viewParam, date: dateParam, m: mParam } = await searchParams;
+  const cookieStore = await cookies();
+  const savedView = cookieStore.get("aldama_view")?.value;
+  const view = viewParam === "calendar" || viewParam === "list" ? viewParam : savedView === "calendar" ? "calendar" : "list";
+  const todayStr = kstDay(new Date().toISOString());
+  const ym = /^\d{4}-\d{2}$/.test(mParam ?? "") ? mParam! : todayStr.slice(0, 7);
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   if (!claimsData?.claims) redirect("/login");
@@ -53,40 +79,140 @@ export default async function DashboardPage() {
         <NotificationSetup />
       </div>
 
-      <section className="mascot-card" style={{ marginBottom: 24 }}>
-        <Image src={heroImg} alt="" width={90} height={90} style={{ height: 80, width: "auto" }} />
-        <div>
-          <p style={{ margin: 0, fontWeight: 800, fontSize: 17 }}>{heroMessage}</p>
-          <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>알다마 펭귄이 마감을 지켜보고 있어요.</p>
+      <section className="mascot-card" style={{ marginBottom: 24, justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <Image src={heroImg} alt="" width={90} height={90} style={{ height: 80, width: "auto" }} />
+          <div>
+            <p style={{ margin: 0, fontWeight: 800, fontSize: 17 }}>{heroMessage}</p>
+            <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>알다마 펭귄이 마감을 지켜보고 있어요.</p>
+          </div>
         </div>
+        <Link href="/dashboard?add=choose" className="button button-accent">+ 계획 추가하기!</Link>
       </section>
 
-      <section className="card" style={{ padding: 24, marginBottom: 24 }}>
-        <h2 style={{ marginTop: 0 }}>공지 텍스트로 추가</h2>
-        <p className="muted" style={{ marginTop: -8 }}>카톡, 학교 공지, 이메일 내용을 복사해서 붙여넣으면 날짜/할 일을 자동으로 찾아드려요.</p>
-        <form action="/share" method="GET" style={{ display: "grid", gap: 12 }}>
-          <label className="label">
-            공지 내용
-            <textarea className="field" name="text" rows={4} placeholder="예: 7월 12일 23:59까지 보고서 제출해주세요." required />
-          </label>
-          <button className="button button-primary" type="submit" style={{ justifySelf: "start" }}>분석하기</button>
-        </form>
-      </section>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <Link href="/dashboard?view=calendar" className={`button ${view === "calendar" ? "button-primary" : "button-muted"}`}>📅 캘린더</Link>
+        <Link href="/dashboard?view=list" className={`button ${view === "list" ? "button-primary" : "button-muted"}`}>📋 할 일 목록</Link>
+        <span style={{ marginLeft: "auto" }}><StartViewButton view={view} /></span>
+      </div>
 
-      <section className="card" style={{ padding: 24, marginBottom: 24 }}>
-        <h2 style={{ marginTop: 0 }}>일정 직접 추가</h2>
-        <form action={createEvent} style={{ display: "grid", gridTemplateColumns: "minmax(130px, 1fr) minmax(150px, 1.5fr) minmax(90px, 0.8fr) minmax(180px, 1fr) auto", gap: 12, alignItems: "end" }}>
-          <label className="label">과목(작업)<input className="field" name="subject" placeholder="예: 컴퓨터 프로그래밍" /></label>
-          <label className="label">제목<input className="field" name="title" placeholder="예: 보고서 제출" required /></label>
-          <label className="label">유형<select className="field" name="event_type" defaultValue="assignment">{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label className="label">마감<input className="field" name="due_at" type="datetime-local" required /></label>
-          <button className="button button-primary">추가</button>
-        </form>
-      </section>
+      {view === "calendar" && (() => {
+        const { y, mo, cells } = monthGrid(ym);
+        const byDay: Record<string, string[]> = {};
+        for (const event of events) {
+          if (!event.due_at) continue;
+          const key = kstDay(event.due_at);
+          (byDay[key] ??= []).push(typeLabels[event.event_type]);
+        }
+        return (
+          <section className="card" style={{ padding: 18, marginBottom: 24 }}>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 18, marginBottom: 12 }}>
+              <Link href={`/dashboard?view=calendar&m=${shiftMonth(ym, -1)}`} className="button button-muted" style={{ minHeight: 32, padding: "0 10px" }}>←</Link>
+              <strong style={{ fontSize: 17 }}>{y}년 {mo}월</strong>
+              <Link href={`/dashboard?view=calendar&m=${shiftMonth(ym, 1)}`} className="button button-muted" style={{ minHeight: 32, padding: "0 10px" }}>→</Link>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+              {["월", "화", "수", "목", "금", "토", "일"].map((d) => (
+                <div key={d} className="muted" style={{ textAlign: "center", fontSize: 12, fontWeight: 700 }}>{d}</div>
+              ))}
+              {cells.map((day, i) => {
+                if (day === null) return <div key={`e${i}`} />;
+                const dayStr = `${ym}-${String(day).padStart(2, "0")}`;
+                const chips = byDay[dayStr] ?? [];
+                const isToday = dayStr === todayStr;
+                const isSelected = dayStr === dateParam;
+                const href = chips.length > 0
+                  ? `/dashboard?view=calendar&m=${ym}&date=${dayStr}`
+                  : `/dashboard?view=calendar&m=${ym}&add=direct&date=${dayStr}`;
+                return (
+                  <Link key={dayStr} href={href} style={{
+                    minHeight: 58, borderRadius: 10, padding: 4, display: "grid", alignContent: "start", gap: 2,
+                    background: isToday ? "var(--primary-pale)" : "transparent",
+                    border: isSelected ? "2px solid var(--primary-deep)" : "1px solid transparent",
+                  }}>
+                    <span style={{ fontSize: 12, fontWeight: isToday ? 800 : 600, textAlign: "center", color: isToday ? "var(--primary-deep)" : "inherit" }}>{day}</span>
+                    {chips.slice(0, 2).map((label, j) => (
+                      <span key={j} style={{ fontSize: 10, fontWeight: 700, background: "var(--primary-pale)", color: "var(--primary-deep)", borderRadius: 6, padding: "1px 3px", textAlign: "center", overflow: "hidden", whiteSpace: "nowrap" }}>{label}</span>
+                    ))}
+                    {chips.length > 2 && <span className="muted" style={{ fontSize: 10, textAlign: "center" }}>+{chips.length - 2}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
+
+      {dateParam && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <strong>{Number(dateParam.slice(5, 7))}월 {Number(dateParam.slice(8, 10))}일 일정</strong>
+          <Link href={`/dashboard?view=${view}`} className="muted" style={{ fontSize: 13 }}>전체 보기 ✕</Link>
+        </div>
+      )}
+
+      {addMode === "choose" && (
+        <section className="card" style={{ padding: 20, marginBottom: 24, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <p style={{ margin: 0, fontWeight: 800 }}>어떻게 추가할까요?</p>
+          <Link href="/dashboard?add=text" className="button button-primary">📋 공지 텍스트로</Link>
+          <Link href="/dashboard?add=direct" className="button button-muted">✍️ 직접 입력</Link>
+          <Link href="/dashboard" className="muted" style={{ fontSize: 13, marginLeft: "auto" }}>취소</Link>
+        </section>
+      )}
+
+      {addMode === "text" && (
+        <section className="card" style={{ padding: 24, marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <h2 style={{ marginTop: 0 }}>공지 텍스트로 추가</h2>
+            <Link href="/dashboard" className="muted" style={{ fontSize: 13 }}>닫기 ✕</Link>
+          </div>
+          <p className="muted" style={{ marginTop: -8 }}>카톡, 학교 공지, 이메일 내용을 복사해서 붙여넣으면 날짜/할 일을 자동으로 찾아드려요.</p>
+          <div style={{ marginBottom: 14 }}>
+            <ClipboardAnalyzeButton />
+          </div>
+          <form action="/share" method="GET" style={{ display: "grid", gap: 12 }}>
+            <label className="label">
+              공지 내용
+              <textarea className="field" name="text" rows={4} placeholder="예: 7월 12일 23:59까지 보고서 제출해주세요." required />
+            </label>
+            <button className="button button-primary" type="submit" style={{ justifySelf: "start" }}>분석하기</button>
+          </form>
+          <div style={{ borderTop: "1px solid var(--border)", marginTop: 20, paddingTop: 16 }}>
+            <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14, color: "#33463f" }}>또는 스크린샷·사진으로</p>
+            {errorMsg && (
+              <p style={{ color: "#b42318", background: "#fff0f0", padding: 12, borderRadius: 10 }}>{errorMsg}</p>
+            )}
+            <form action={analyzeNoticeImage} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <input className="field" type="file" name="image" accept="image/*" required style={{ maxWidth: 340 }} />
+              <button className="button button-primary">🖼️ 이미지 분석하기</button>
+            </form>
+            <p className="muted" style={{ margin: "8px 0 0", fontSize: 13 }}>카톡 대화 캡처, 공지 사진 등을 올리면 글자를 읽어서 분석해요. (7MB 이하)</p>
+          </div>
+        </section>
+      )}
+
+      {addMode === "direct" && (
+        <section className="card" style={{ padding: 24, marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <h2 style={{ marginTop: 0 }}>일정 직접 추가</h2>
+            <Link href="/dashboard" className="muted" style={{ fontSize: 13 }}>닫기 ✕</Link>
+          </div>
+          <form action={createEvent} style={{ display: "grid", gridTemplateColumns: "minmax(130px, 1fr) minmax(150px, 1.5fr) minmax(90px, 0.8fr) minmax(180px, 1fr) auto", gap: 12, alignItems: "end" }}>
+            <label className="label">과목(작업)<input className="field" name="subject" placeholder="예: 컴퓨터 프로그래밍" /></label>
+            <label className="label">제목<input className="field" name="title" placeholder="예: 보고서 제출" required /></label>
+            <label className="label">유형<select className="field" name="event_type" defaultValue="assignment">{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="label">마감<input className="field" name="due_at" type="datetime-local" defaultValue={dateParam ? `${dateParam}T23:59` : undefined} required /></label>
+            <button className="button button-primary">추가</button>
+          </form>
+        </section>
+      )}
 
       <section style={{ display: "grid", gap: 12 }}>
-        {events.length === 0 && <div className="card muted" style={{ padding: 36, textAlign: "center" }}>아직 일정이 없습니다. 첫 일정을 추가해보세요.</div>}
-        {events.map((event) => {
+        {(dateParam ? events.filter((event) => event.due_at && kstDay(event.due_at) === dateParam) : events).length === 0 && (
+          <div className="card muted" style={{ padding: 36, textAlign: "center" }}>
+            {dateParam ? "이 날짜에는 일정이 없어요." : "아직 일정이 없습니다. 첫 일정을 추가해보세요."}
+          </div>
+        )}
+        {(dateParam ? events.filter((event) => event.due_at && kstDay(event.due_at) === dateParam) : events).map((event) => {
           const urgency = event.is_completed
             ? { level: "none" as const, label: "완료", background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }
             : getUrgency(event.due_at);
@@ -101,6 +227,32 @@ export default async function DashboardPage() {
           };
           const mascotSrc = event.is_completed ? "/mascot/happy.png" : mascotByLevel[urgency.level];
           const bigLabel = urgency.level === "overdue" ? "마감 경과! 긴급!" : urgency.label;
+
+          if (editId === event.id) {
+            return (
+              <article key={event.id} className="card" style={{ padding: 14, display: "grid", gridTemplateColumns: "96px 1fr", alignItems: "stretch", gap: 16 }}>
+                <div style={{ background: "var(--primary-pale)", borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
+                  <Image src="/mascot/reading.png" alt="" width={80} height={80} style={{ maxHeight: 76, width: "auto", maxWidth: 80 }} />
+                </div>
+                <form action={updateEvent} style={{ display: "grid", gap: 10, alignContent: "center" }}>
+                  <input type="hidden" name="id" value={event.id} />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 10 }}>
+                    <label className="label">과목(작업)<input className="field" name="subject" defaultValue={event.subject ?? ""} placeholder="예: 컴퓨터 프로그래밍" /></label>
+                    <label className="label">제목<input className="field" name="title" defaultValue={event.title} required /></label>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 10 }}>
+                    <label className="label">유형<select className="field" name="event_type" defaultValue={event.event_type}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                    <label className="label">마감<input className="field" name="due_at" type="datetime-local" defaultValue={toKstInputValue(event.due_at)} /></label>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="button button-primary">저장</button>
+                    <Link href="/dashboard" className="button button-muted">취소</Link>
+                  </div>
+                </form>
+              </article>
+            );
+          }
+
           return (
             <article
               key={event.id}
@@ -152,6 +304,7 @@ export default async function DashboardPage() {
                 </span>
                 <div style={{ display: "flex", gap: 8 }}>
                   <CompleteButton id={event.id} isCompleted={event.is_completed} />
+                  <Link href={`/dashboard?edit=${event.id}`} className="button button-muted">수정</Link>
                   <form action={deleteEvent}><input type="hidden" name="id" value={event.id} /><button className="button button-danger">삭제</button></form>
                 </div>
               </div>

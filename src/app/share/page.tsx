@@ -2,17 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { parseNotice } from "@/lib/ai-parser";
+import { toKstInputValue } from "@/lib/datetime";
 import { saveSharedCandidates } from "./actions";
 
 const typeLabels: Record<string, string> = {
   assignment: "과제", exam: "시험", presentation: "발표", application: "신청", event: "행사", other: "기타",
 };
-
-function toLocalInputValue(iso: string) {
-  const date = new Date(iso);
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 export default async function SharePage({
   searchParams,
@@ -84,7 +79,7 @@ export default async function SharePage({
                     className="field"
                     name={`due_at_${index}`}
                     type="datetime-local"
-                    defaultValue={candidate.dueAt ? toLocalInputValue(candidate.dueAt) : ""}
+                    defaultValue={candidate.dueAt ? toKstInputValue(candidate.dueAt) : ""}
                   />
                 </label>
               </div>

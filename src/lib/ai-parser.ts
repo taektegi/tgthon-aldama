@@ -96,6 +96,40 @@ async function callGemini(rawText: string, now: Date): Promise<NoticeCandidate[]
   }));
 }
 
+/** 공지 스크린샷/사진 → 이미지 속 텍스트를 그대로 옮겨 적기 */
+export async function transcribeNoticeImage(base64Data: string, mimeType: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY not set");
+
+  const response = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { inline_data: { mime_type: mimeType, data: base64Data } },
+              {
+                text: "이 이미지는 대학교 공지(카톡 대화, LMS 공지, 이메일 등) 캡처입니다. 이미지에 보이는 본문 텍스트를 빠짐없이 그대로 옮겨 적으세요. 앱 UI 요소(시간표시, 버튼 이름, 상태바 등)는 제외하고, 공지 내용만 적으세요. 설명 없이 텍스트만 출력하세요.",
+              },
+            ],
+          },
+        ],
+        generationConfig: { temperature: 0 },
+      }),
+      signal: AbortSignal.timeout(30000),
+    },
+  );
+
+  if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
+  const data = await response.json();
+  const text: unknown = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof text !== "string" || text.trim().length === 0) throw new Error("이미지에서 텍스트를 찾지 못했어요");
+  return text.trim();
+}
+
 export async function parseNotice(rawText: string, now: Date = new Date()): Promise<ParseResult> {
   try {
     const candidates = await callGemini(rawText, now);
