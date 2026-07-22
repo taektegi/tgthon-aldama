@@ -1,0 +1,41 @@
+export type UrgencyLevel = "none" | "overdue" | "urgent" | "today" | "soon" | "later";
+
+export interface Urgency {
+  level: UrgencyLevel;
+  label: string;
+  background: string;
+  color: string;
+  fontWeight: number;
+}
+
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
+
+export function getUrgency(dueAt: string | null, now: Date = new Date()): Urgency {
+  if (!dueAt) {
+    return { level: "none", label: "–", background: "#f3f4f6", color: "#6b7280", fontWeight: 600 };
+  }
+
+  const diff = new Date(dueAt).getTime() - now.getTime();
+
+  if (diff < 0) {
+    return { level: "overdue", label: "마감 지남", background: "#fde8e8", color: "#b42318", fontWeight: 800 };
+  }
+
+  if (diff <= 6 * HOUR) {
+    const hours = Math.max(1, Math.ceil(diff / HOUR));
+    return { level: "urgent", label: `${hours}시간 남음!!`, background: "#ffe0e0", color: "#e11d48", fontWeight: 900 };
+  }
+
+  if (diff <= DAY) {
+    return { level: "today", label: "D-1", background: "#ffedd5", color: "#c2410c", fontWeight: 800 };
+  }
+
+  const days = Math.ceil(diff / DAY);
+
+  if (days <= 3) {
+    return { level: "soon", label: `D-${days}`, background: "#eef0ff", color: "#3f3fb4", fontWeight: 700 };
+  }
+
+  return { level: "later", label: `D-${days}`, background: "#f3f4f6", color: "#475569", fontWeight: 600 };
+}

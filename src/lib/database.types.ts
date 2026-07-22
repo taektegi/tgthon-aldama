@@ -29,16 +29,28 @@ export type Database = {
           event_type: "assignment" | "exam" | "presentation" | "application" | "event" | "other";
           starts_at: string | null; due_at: string | null; is_all_day: boolean; location: string | null;
           original_text: string | null; source_url: string | null; confidence: number | null;
-          is_completed: boolean; completed_at: string | null; created_at: string; updated_at: string;
+          is_completed: boolean; completed_at: string | null; reminder_sent_at: string | null;
+          created_at: string; updated_at: string;
         };
         Insert: {
           id?: string; user_id: string; source_id?: string | null; external_uid?: string | null; title: string;
           event_type?: "assignment" | "exam" | "presentation" | "application" | "event" | "other";
           starts_at?: string | null; due_at?: string | null; is_all_day?: boolean; location?: string | null;
           original_text?: string | null; source_url?: string | null; confidence?: number | null;
-          is_completed?: boolean; completed_at?: string | null; created_at?: string; updated_at?: string;
+          is_completed?: boolean; completed_at?: string | null; reminder_sent_at?: string | null;
+          created_at?: string; updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
+        Relationships: [];
+      };
+      push_subscriptions: {
+        Row: {
+          id: string; user_id: string; endpoint: string; p256dh: string; auth_key: string; created_at: string;
+        };
+        Insert: {
+          id?: string; user_id: string; endpoint: string; p256dh: string; auth_key: string; created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["push_subscriptions"]["Insert"]>;
         Relationships: [];
       };
       sync_runs: {

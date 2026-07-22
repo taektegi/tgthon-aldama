@@ -21,12 +21,14 @@ export async function updateSession(request: NextRequest) {
   );
 
   const { data } = await supabase.auth.getClaims();
-  const isProtected = request.nextUrl.pathname.startsWith("/dashboard");
+  const isProtected = request.nextUrl.pathname.startsWith("/dashboard") || request.nextUrl.pathname.startsWith("/share");
 
   if (isProtected && !data?.claims) {
     const url = request.nextUrl.clone();
+    const nextPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
     url.pathname = "/login";
-    url.searchParams.set("next", request.nextUrl.pathname);
+    url.search = "";
+    url.searchParams.set("next", nextPath);
     return NextResponse.redirect(url);
   }
 
