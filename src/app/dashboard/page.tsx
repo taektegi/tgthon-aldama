@@ -75,8 +75,9 @@ export default async function DashboardPage() {
 
       <section className="card" style={{ padding: 24, marginBottom: 24 }}>
         <h2 style={{ marginTop: 0 }}>일정 직접 추가</h2>
-        <form action={createEvent} style={{ display: "grid", gridTemplateColumns: "minmax(180px, 2fr) 1fr minmax(190px, 1fr) auto", gap: 12, alignItems: "end" }}>
-          <label className="label">제목<input className="field" name="title" placeholder="예: 프로젝트 보고서 제출" required /></label>
+        <form action={createEvent} style={{ display: "grid", gridTemplateColumns: "minmax(130px, 1fr) minmax(150px, 1.5fr) minmax(90px, 0.8fr) minmax(180px, 1fr) auto", gap: 12, alignItems: "end" }}>
+          <label className="label">과목(작업)<input className="field" name="subject" placeholder="예: 컴퓨터 프로그래밍" /></label>
+          <label className="label">제목<input className="field" name="title" placeholder="예: 보고서 제출" required /></label>
           <label className="label">유형<select className="field" name="event_type" defaultValue="assignment">{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label className="label">마감<input className="field" name="due_at" type="datetime-local" required /></label>
           <button className="button button-primary">추가</button>
@@ -128,6 +129,9 @@ export default async function DashboardPage() {
                 <p style={{ margin: 0, fontSize: 22, lineHeight: 1.1, color: urgency.color, fontWeight: urgency.fontWeight >= 800 ? 900 : 800 }}>
                   {bigLabel}
                 </p>
+                {event.subject && (
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "var(--primary-deep)" }}>{event.subject}</p>
+                )}
                 <h3 style={{ margin: 0, fontSize: 16, textDecoration: event.is_completed ? "line-through" : "none" }}>{event.title}</h3>
                 <p className="muted" style={{ margin: 0, fontSize: 13 }}>
                   {event.due_at ? new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Seoul" }).format(new Date(event.due_at)) : "마감 없음"}

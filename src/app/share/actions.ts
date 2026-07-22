@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 const rowSchema = z.object({
   title: z.string().trim().min(1).max(200),
   event_type: z.enum(["assignment", "exam", "presentation", "application", "event", "other"]),
-  due_at: z.string().min(1),
+  due_at: z.string().optional().transform((value) => (value && value.length > 0 ? value : null)),
   original_text: z.string().max(2000).optional(),
   confidence: z.coerce.number().min(0).max(1).optional(),
 });
@@ -23,6 +23,8 @@ async function authenticatedClient() {
 
 export async function saveSharedCandidates(formData: FormData) {
   const total = Number(formData.get("total") ?? 0);
+  const subjectRaw = formData.get("subject");
+  const subject = typeof subjectRaw === "string" && subjectRaw.trim().length > 0 ? subjectRaw.trim().slice(0, 100) : null;
   const rows: z.infer<typeof rowSchema>[] = [];
 
   for (let index = 0; index < total; index++) {
@@ -43,9 +45,10 @@ export async function saveSharedCandidates(formData: FormData) {
   await supabase.from("events").insert(
     rows.map((row) => ({
       user_id: userId,
+      subject,
       title: row.title,
       event_type: row.event_type,
-      due_at: new Date(row.due_at).toISOString(),
+      due_at: row.due_at ? new Date(row.due_at).toISOString() : null,
       original_text: row.original_text ?? null,
       confidence: row.confidence ?? null,
     })),

@@ -26,6 +26,7 @@ export type Database = {
       events: {
         Row: {
           id: string; user_id: string; source_id: string | null; external_uid: string | null; title: string;
+          subject: string | null;
           event_type: "assignment" | "exam" | "presentation" | "application" | "event" | "other";
           starts_at: string | null; due_at: string | null; is_all_day: boolean; location: string | null;
           original_text: string | null; source_url: string | null; confidence: number | null;
@@ -34,6 +35,7 @@ export type Database = {
         };
         Insert: {
           id?: string; user_id: string; source_id?: string | null; external_uid?: string | null; title: string;
+          subject?: string | null;
           event_type?: "assignment" | "exam" | "presentation" | "application" | "event" | "other";
           starts_at?: string | null; due_at?: string | null; is_all_day?: boolean; location?: string | null;
           original_text?: string | null; source_url?: string | null; confidence?: number | null;

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { parseNoticeText } from "@/lib/notice-parser";
+import { parseNotice } from "@/lib/ai-parser";
 import { saveSharedCandidates } from "./actions";
 
 const typeLabels: Record<string, string> = {
@@ -31,14 +31,16 @@ export default async function SharePage({
   }
 
   const rawText = [params.title, params.text, params.url].filter(Boolean).join("\n");
-  const candidates = rawText.trim().length > 0 ? parseNoticeText(rawText) : [];
+  const { candidates, engine } = rawText.trim().length > 0 ? await parseNotice(rawText) : { candidates: [], engine: "regex" as const };
 
   return (
     <main className="shell" style={{ padding: "38px 0 80px" }}>
       <header style={{ marginBottom: 24 }}>
         <Link href="/dashboard" className="muted">← 대시보드</Link>
         <h1 style={{ margin: "10px 0 0" }}>공유받은 공지 확인</h1>
-        <p className="muted" style={{ marginTop: 6 }}>자동으로 뽑은 내용이에요. 틀린 부분은 고쳐서 저장하세요.</p>
+        <p className="muted" style={{ marginTop: 6 }}>
+          {engine === "ai" ? "🤖 AI가 뽑은 내용이에요." : "기본 분석으로 뽑은 내용이에요."} 틀린 부분은 고쳐서 저장하세요.
+        </p>
       </header>
 
       {candidates.length === 0 ? (
@@ -77,18 +79,24 @@ export default async function SharePage({
                   </select>
                 </label>
                 <label className="label">
-                  마감
+                  마감 {!candidate.dueAt && <span className="muted" style={{ fontWeight: 400 }}>(날짜를 못 찾았어요 — 직접 정하거나 비워두세요)</span>}
                   <input
                     className="field"
                     name={`due_at_${index}`}
                     type="datetime-local"
-                    defaultValue={toLocalInputValue(candidate.dueAt as string)}
-                    required
+                    defaultValue={candidate.dueAt ? toLocalInputValue(candidate.dueAt) : ""}
                   />
                 </label>
               </div>
             </section>
           ))}
+          <section className="card" style={{ padding: 20, display: "grid", gap: 8 }}>
+            <label className="label">
+              어떤 과목(작업)인가요?
+              <input className="field" name="subject" placeholder="예: 컴퓨터 프로그래밍" required />
+            </label>
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>선택한 모든 항목에 이 과목이 붙어요.</p>
+          </section>
           <button className="button button-primary" type="submit">선택한 항목 저장</button>
         </form>
       )}

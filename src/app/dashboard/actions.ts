@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const eventSchema = z.object({
   title: z.string().trim().min(1).max(200),
+  subject: z.string().trim().max(100).optional().transform((value) => (value && value.length > 0 ? value : null)),
   event_type: z.enum(["assignment", "exam", "presentation", "application", "event", "other"]),
   due_at: z.string().min(1),
 });
@@ -26,6 +27,7 @@ export async function createEvent(formData: FormData) {
   await supabase.from("events").insert({
     user_id: userId,
     title: parsed.data.title,
+    subject: parsed.data.subject,
     event_type: parsed.data.event_type,
     due_at: new Date(parsed.data.due_at).toISOString(),
   });
