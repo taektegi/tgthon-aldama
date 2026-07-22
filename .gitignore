@@ -5,6 +5,7 @@ node_modules/
 out/
 *.tsbuildinfo
 .DS_Store
+.idea/
 supabase/.branches/
 supabase/.temp/
 
