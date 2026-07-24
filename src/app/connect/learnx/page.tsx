@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { canvasSettingsUrl } from "@/lib/canvas/config";
 import { connectLearnX } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -16,8 +17,10 @@ export default async function ConnectLearnXPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const canvasBaseUrl = process.env.NEXT_PUBLIC_CANVAS_BASE_URL ?? process.env.CANVAS_BASE_URL;
-  const settingsUrl = canvasBaseUrl ? `${canvasBaseUrl.replace(/\/$/, "")}/profile/settings` : null;
+  const settingsUrl = canvasSettingsUrl(
+    process.env.NEXT_PUBLIC_CANVAS_BASE_URL,
+    process.env.CANVAS_BASE_URL,
+  );
   const serverConfigured = Boolean(process.env.CANVAS_BASE_URL && process.env.TOKEN_ENCRYPTION_KEY);
 
   return (

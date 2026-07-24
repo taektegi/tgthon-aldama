@@ -11,7 +11,8 @@
 - FK/부분/중복 방지 인덱스
 - 로그인, 회원가입, 일정 생성·완료·삭제 화면
 - 인증이 필요한 `sync-ical`, `sync-notices` Edge Function 뼈대
-- 러닝엑스(Canvas) 토큰 연결과 과제 동기화
+- 러닝엑스(Canvas) 토큰 연결과 과제·캘린더 일정 동기화
+  (Canvas ID 중복 방지, 변경분만 갱신, 사용자 수정 필드 보호와 원본 복원)
 
 ## 시작하기
 
@@ -28,8 +29,8 @@ npm run dev
 러닝엑스 연동에는 다음 서버 환경변수도 필요합니다.
 
 ```bash
-CANVAS_BASE_URL=https://e-campus.khu.ac.kr
-NEXT_PUBLIC_CANVAS_BASE_URL=https://e-campus.khu.ac.kr
+CANVAS_BASE_URL=https://khcanvas.khu.ac.kr
+NEXT_PUBLIC_CANVAS_BASE_URL=https://khcanvas.khu.ac.kr
 TOKEN_ENCRYPTION_KEY=<openssl rand -base64 32로 생성한 값>
 SUPABASE_SECRET_KEY=<Netlify 예약 함수 전용 Secret Key>
 ```

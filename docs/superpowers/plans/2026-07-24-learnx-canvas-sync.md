@@ -22,23 +22,22 @@
 
 ### Task 0: Canvas API 주소 확인 (코드 없음, 5분)
 
-경희대는 e-campus.khu.ac.kr(포털)과 실제 Canvas 서버 주소가 다를 수 있다. sun의 토큰으로 어느 주소가 API에 응답하는지 확인한다.
+경희대의 `e-campus.khu.ac.kr`은 강좌 카탈로그/안내 포털이며, 실제 LearningX/Canvas 서버는 `khcanvas.khu.ac.kr`로 확인됐다.
 
 - [ ] **Step 1: sun이 토큰 1개 발급** — e-Campus 설정 → "+ 새 액세스 토큰", 목적 "알다마 개발", 만료일 비움.
-- [ ] **Step 2: 두 주소에 curl 테스트 (sun 터미널에서 — 토큰을 채팅에 붙여넣지 말 것)**
+- [ ] **Step 2: 실제 Canvas 주소에 curl 테스트 (sun 터미널에서 — 토큰을 채팅에 붙여넣지 말 것)**
 
 ```bash
-curl -s -H "Authorization: Bearer <토큰>" https://e-campus.khu.ac.kr/api/v1/users/self | head -c 300
-curl -s -H "Authorization: Bearer <토큰>" https://canvas.khu.ac.kr/api/v1/users/self | head -c 300
+curl -s -H "Authorization: Bearer <토큰>" https://khcanvas.khu.ac.kr/api/v1/users/self | head -c 300
 ```
 
-JSON으로 `{"id":..., "name":"..."}`가 나오는 주소가 정답. 이후 모든 Task에서 그 주소를 `CANVAS_BASE_URL`로 사용.
+JSON으로 `{"id":..., "name":"..."}`가 나오면 정상이다. 이후 모든 Task에서 이 주소를 `CANVAS_BASE_URL`로 사용한다.
 
 - [ ] **Step 3: .env.local에 추가**
 
 ```bash
-CANVAS_BASE_URL=https://<확인된 주소>
-NEXT_PUBLIC_CANVAS_BASE_URL=https://<확인된 주소>
+CANVAS_BASE_URL=https://khcanvas.khu.ac.kr
+NEXT_PUBLIC_CANVAS_BASE_URL=https://khcanvas.khu.ac.kr
 ```
 
 ---

@@ -6,12 +6,23 @@ import {
   CanvasApiError,
   CanvasAuthError,
   CanvasNetworkError,
+  CanvasNotFoundError,
   CanvasRateLimitError,
   CanvasTemporaryError,
+  canvasCalendarWindow,
   fetchActiveCourses,
+  fetchCalendarEvent,
+  fetchCalendarEvents,
   fetchCourseAssignments,
 } from "./api";
-import { planChanges, toEventRow, type EventUpsertRow } from "./mapping";
+import {
+  planChanges,
+  toCalendarEventRow,
+  toEventRow,
+  type EventUpsertRow,
+  type ExistingEventSnapshot,
+  type OverrideField,
+} from "./mapping";
 
 type Client = SupabaseClient<Database>;
 export type CanvasSource = { id: string; user_id: string; credential_ciphertext: string };
@@ -65,17 +76,76 @@ export async function syncCanvasSource(supabase: Client, source: CanvasSource) {
         if (row) rowsByExternalUid.set(row.external_uid, row);
       }
     }
+    const calendarWindow = canvasCalendarWindow();
+    const calendarEvents = await fetchCalendarEvents(token, courses.map((course) => course.id), calendarWindow);
+    for (const calendarEvent of calendarEvents) {
+      const row = toCalendarEventRow(calendarEvent, source.user_id, source.id);
+      if (row) rowsByExternalUid.set(row.external_uid, row);
+    }
 
     const { data: existingRows, error: existingError } = await supabase
       .from("events")
-      .select("id, external_uid, is_completed")
+      .select("id, external_uid, title, subject, event_type, starts_at, due_at, is_all_day, location, source_url, is_completed, is_hidden, override_fields")
       .eq("source_id", source.id);
     if (existingError) throw databaseError("Could not load existing events");
+
+    // The ranged list may omit both deleted events and events moved outside the
+    // window. Confirm missing IDs individually before hiding anything.
+    const windowStart = new Date(calendarWindow.startDate).getTime();
+    const windowEnd = new Date(calendarWindow.endDate).getTime();
+    const calendarEventIdsToHide: string[] = [];
+    for (const row of existingRows ?? []) {
+      const externalUid = row.external_uid;
+      if (
+        row.is_hidden
+        || !externalUid?.startsWith("canvas:event:")
+        || rowsByExternalUid.has(externalUid)
+      ) continue;
+
+      const timestamp = Date.parse(row.starts_at ?? row.due_at ?? "");
+      const wasInsideWindow = Number.isFinite(timestamp) && timestamp >= windowStart && timestamp <= windowEnd;
+      const hasTimeOverride = row.override_fields.includes("starts_at") || row.override_fields.includes("due_at");
+      if (!wasInsideWindow && !hasTimeOverride) continue;
+
+      const match = /^canvas:event:(\d+)$/.exec(externalUid);
+      const eventId = match ? Number(match[1]) : NaN;
+      if (!Number.isSafeInteger(eventId) || eventId < 1) continue;
+
+      try {
+        const currentEvent = await fetchCalendarEvent(token, eventId);
+        if (currentEvent.workflow_state === "deleted") {
+          calendarEventIdsToHide.push(row.id);
+          continue;
+        }
+        const currentRow = toCalendarEventRow(currentEvent, source.user_id, source.id);
+        if (currentRow) rowsByExternalUid.set(currentRow.external_uid, currentRow);
+      } catch (error) {
+        if (error instanceof CanvasNotFoundError) {
+          calendarEventIdsToHide.push(row.id);
+          continue;
+        }
+        // A temporary lookup failure cannot prove deletion. Abort before any
+        // event writes so the existing card stays visible.
+        throw error;
+      }
+    }
 
     const existing = new Map(
       (existingRows ?? [])
         .filter((row) => row.external_uid !== null)
-        .map((row) => [row.external_uid as string, { id: row.id, is_completed: row.is_completed }]),
+        .map((row) => [row.external_uid as string, {
+          id: row.id,
+          title: row.title,
+          subject: row.subject,
+          event_type: row.event_type,
+          starts_at: row.starts_at,
+          due_at: row.due_at,
+          is_all_day: row.is_all_day,
+          location: row.location,
+          source_url: row.source_url,
+          is_completed: row.is_completed,
+          override_fields: row.override_fields as OverrideField[],
+        } satisfies ExistingEventSnapshot]),
     );
     const plan = planChanges([...rowsByExternalUid.values()], existing, new Date());
 
@@ -87,6 +157,15 @@ export async function syncCanvasSource(supabase: Client, source: CanvasSource) {
       const { error } = await supabase.from("events").update(patch).eq("id", id);
       if (error) throw databaseError("Could not update Canvas event");
     }
+    if (calendarEventIdsToHide.length > 0) {
+      const { error } = await supabase
+        .from("events")
+        .update({ is_hidden: true })
+        .in("id", calendarEventIdsToHide);
+      if (error) throw databaseError("Could not hide deleted Canvas calendar events");
+    }
+
+    const updatedCount = plan.toUpdate.length + calendarEventIdsToHide.length;
 
     const finishedAt = new Date().toISOString();
     const { error: sourceError } = await supabase
@@ -101,12 +180,12 @@ export async function syncCanvasSource(supabase: Client, source: CanvasSource) {
         status: "succeeded",
         finished_at: finishedAt,
         inserted_count: plan.toInsert.length,
-        updated_count: plan.toUpdate.length,
+        updated_count: updatedCount,
       })
       .eq("id", runId);
     if (finishError) throw databaseError("Could not finish synchronization run");
 
-    return { inserted: plan.toInsert.length, updated: plan.toUpdate.length, syncedAt: finishedAt };
+    return { inserted: plan.toInsert.length, updated: updatedCount, syncedAt: finishedAt };
   } catch (error) {
     const info = canvasSyncErrorInfo(error);
     const sourcePatch = error instanceof CanvasAuthError

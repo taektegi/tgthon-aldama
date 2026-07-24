@@ -31,7 +31,7 @@ export type Database = {
           starts_at: string | null; due_at: string | null; is_all_day: boolean; location: string | null;
           original_text: string | null; source_url: string | null; confidence: number | null;
           is_completed: boolean; completed_at: string | null; reminder_sent_at: string | null;
-          is_hidden: boolean;
+          is_hidden: boolean; override_fields: string[];
           created_at: string; updated_at: string;
         };
         Insert: {
@@ -41,7 +41,7 @@ export type Database = {
           starts_at?: string | null; due_at?: string | null; is_all_day?: boolean; location?: string | null;
           original_text?: string | null; source_url?: string | null; confidence?: number | null;
           is_completed?: boolean; completed_at?: string | null; reminder_sent_at?: string | null;
-          is_hidden?: boolean;
+          is_hidden?: boolean; override_fields?: string[];
           created_at?: string; updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;

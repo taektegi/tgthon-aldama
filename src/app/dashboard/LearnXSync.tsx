@@ -51,7 +51,7 @@ export default function LearnXSync({
         onClick={() =>
           startTransition(async () => {
             const result = await syncLearnXNow();
-            setMessage(result.ok ? `완료! 새 과제 ${result.inserted}개` : ERROR_MESSAGES[result.code] ?? "동기화하지 못했어요.");
+            setMessage(result.ok ? `완료! 새 일정 ${result.inserted}개` : ERROR_MESSAGES[result.code] ?? "동기화하지 못했어요.");
             setTimeout(() => setMessage(""), 2000);
           })
         }

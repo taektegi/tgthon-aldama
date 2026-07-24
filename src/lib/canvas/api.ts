@@ -19,6 +19,8 @@ export class CanvasApiError extends Error {
   readonly code = "CANVAS_ERROR";
 }
 
+export class CanvasNotFoundError extends CanvasApiError {}
+
 export type CanvasUser = { id: number; name: string };
 export type CanvasCourse = { id: number; name: string };
 export type CanvasAssignment = {
@@ -29,9 +31,32 @@ export type CanvasAssignment = {
   is_quiz_assignment?: boolean;
   submission?: { workflow_state: string } | null;
 };
+export type CanvasCalendarEvent = {
+  id: number;
+  title: string;
+  start_at: string | null;
+  end_at: string | null;
+  html_url: string;
+  context_name?: string | null;
+  all_day?: boolean;
+  location_name?: string | null;
+  workflow_state?: "active" | "locked" | "deleted" | string;
+};
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_PAGES = 100;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const CALENDAR_LOOKBACK_DAYS = 30;
+const CALENDAR_LOOKAHEAD_DAYS = 365;
+
+export type CanvasCalendarWindow = { startDate: string; endDate: string };
+
+export function canvasCalendarWindow(now: Date = new Date()): CanvasCalendarWindow {
+  return {
+    startDate: new Date(now.getTime() - CALENDAR_LOOKBACK_DAYS * DAY_MS).toISOString(),
+    endDate: new Date(now.getTime() + CALENDAR_LOOKAHEAD_DAYS * DAY_MS).toISOString(),
+  };
+}
 
 function baseUrl(): URL {
   const raw = process.env.CANVAS_BASE_URL;
@@ -74,6 +99,7 @@ async function request<T>(token: string, url: URL): Promise<{ data: T; next: str
   }
 
   if (response.status === 401) throw new CanvasAuthError("Canvas token is invalid");
+  if (response.status === 404) throw new CanvasNotFoundError("Canvas resource was not found");
   if (response.status === 429) throw new CanvasRateLimitError("Canvas rate limit reached");
   if (response.status >= 500) throw new CanvasTemporaryError("Canvas is temporarily unavailable");
   if (!response.ok) throw new CanvasApiError(`Canvas request failed (${response.status})`);
@@ -120,4 +146,47 @@ export function fetchCourseAssignments(token: string, courseId: number): Promise
     token,
     `/api/v1/courses/${courseId}/assignments?include[]=submission&per_page=100&order_by=due_at`,
   );
+}
+
+export async function fetchCalendarEvents(
+  token: string,
+  courseIds: number[],
+  window: CanvasCalendarWindow = canvasCalendarWindow(),
+): Promise<CanvasCalendarEvent[]> {
+  for (const courseId of courseIds) {
+    if (!Number.isSafeInteger(courseId) || courseId < 1) throw new CanvasApiError("Invalid Canvas course id");
+  }
+
+  const personalParams = new URLSearchParams({
+    type: "event",
+    start_date: window.startDate,
+    end_date: window.endDate,
+    per_page: "100",
+  });
+  const events = await fetchPaginated<CanvasCalendarEvent>(token, `/api/v1/calendar_events?${personalParams}`);
+
+  // Canvas accepts at most 10 context_codes in one calendar request.
+  for (let index = 0; index < courseIds.length; index += 10) {
+    const params = new URLSearchParams({
+      type: "event",
+      start_date: window.startDate,
+      end_date: window.endDate,
+      per_page: "100",
+    });
+    for (const courseId of courseIds.slice(index, index + 10)) {
+      params.append("context_codes[]", `course_${courseId}`);
+    }
+    events.push(...await fetchPaginated<CanvasCalendarEvent>(token, `/api/v1/calendar_events?${params}`));
+  }
+
+  return [...new Map(events.map((event) => [event.id, event])).values()];
+}
+
+export async function fetchCalendarEvent(token: string, eventId: number): Promise<CanvasCalendarEvent> {
+  if (!Number.isSafeInteger(eventId) || eventId < 1) throw new CanvasApiError("Invalid Canvas calendar event id");
+  const result = await request<CanvasCalendarEvent>(
+    token,
+    new URL(`/api/v1/calendar_events/${eventId}`, baseUrl()),
+  );
+  return result.data;
 }

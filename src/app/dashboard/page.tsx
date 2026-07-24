@@ -5,13 +5,19 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUrgency } from "@/lib/urgency";
 import { toKstInputValue } from "@/lib/datetime";
-import { analyzeNoticeImage, createEvent, deleteEvent, updateEvent } from "./actions";
+import { analyzeNoticeImage, createEvent, deleteEvent, restoreLearnXOriginal, updateEvent } from "./actions";
 import { ClipboardAnalyzeButton } from "./ClipboardAnalyzeButton";
 import { CompleteButton } from "./CompleteButton";
 import { NotificationSetup } from "./NotificationSetup";
 import LearnXSync from "./LearnXSync";
 
 const kstDay = (iso: string) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date(iso));
+const eventCalendarTime = (event: { starts_at: string | null; due_at: string | null }) => event.starts_at ?? event.due_at;
+const formatKstDateTime = (iso: string) => new Intl.DateTimeFormat("ko-KR", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Seoul",
+}).format(new Date(iso));
 
 function monthGrid(ym: string) {
   const [y, mo] = ym.split("-").map(Number);
@@ -58,8 +64,8 @@ const typeLabels: Record<string, string> = {
   assignment: "과제", exam: "시험", presentation: "발표", application: "신청", event: "행사", other: "기타",
 };
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ edit?: string; add?: string; error?: string; view?: string; date?: string; m?: string; connected?: string; syncError?: string }> }) {
-  const { edit: editId, add: addMode, error: errorMsg, view: viewParam, date: dateParam, m: mParam, connected, syncError } = await searchParams;
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ edit?: string; add?: string; error?: string; view?: string; date?: string; m?: string; connected?: string; syncError?: string; restored?: string; restoreError?: string }> }) {
+  const { edit: editId, add: addMode, error: errorMsg, view: viewParam, date: dateParam, m: mParam, connected, syncError, restored, restoreError } = await searchParams;
   const cookieStore = await cookies();
   const savedView = cookieStore.get("aldama_view")?.value;
   const view = viewParam === "calendar" || viewParam === "list" ? viewParam : savedView === "calendar" ? "calendar" : "list";
@@ -71,6 +77,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const { data } = await supabase.from("events").select("*").eq("is_hidden", false).order("is_completed").order("due_at", { nullsFirst: false });
   const events = data ?? [];
+  const visibleEvents = dateParam
+    ? events.filter((event) => {
+        const calendarTime = eventCalendarTime(event);
+        return calendarTime !== null && kstDay(calendarTime) === dateParam;
+      })
+    : events;
 
   const { data: canvasSource } = await supabase
     .from("sources")
@@ -93,13 +105,25 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
       {connected !== undefined && (
         <section className="card" style={{ padding: 14, marginBottom: 16, background: "var(--primary-pale)", fontWeight: 700 }}>
-          🎉 러닝엑스가 연결됐어요! 과제 {connected}개를 가져왔어요.
+          🎉 러닝엑스가 연결됐어요! 일정 {connected}개를 가져왔어요.
         </section>
       )}
 
       {syncError && syncError !== "TOKEN_INVALID" && (
         <section className="card" style={{ padding: 14, marginBottom: 16, background: "#fff8e8", color: "#8a5a00", fontWeight: 700 }}>
           러닝엑스 연결은 저장했지만 첫 동기화는 완료하지 못했어요. 잠시 후 &lsquo;지금 동기화&rsquo;를 눌러주세요.
+        </section>
+      )}
+
+      {restored === "1" && (
+        <section className="card" style={{ padding: 14, marginBottom: 16, background: "var(--primary-pale)", fontWeight: 700 }}>
+          러닝엑스 원본 값으로 되돌렸어요.
+        </section>
+      )}
+
+      {restoreError === "1" && (
+        <section className="card" style={{ padding: 14, marginBottom: 16, background: "#fff8e8", color: "#8a5a00", fontWeight: 700 }}>
+          원본 보호 설정은 해제했지만 즉시 동기화하지 못했어요. 잠시 후 &lsquo;지금 동기화&rsquo;를 눌러주세요.
         </section>
       )}
 
@@ -143,8 +167,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         const { y, mo, cells } = monthGrid(ym);
         const byDay: Record<string, string[]> = {};
         for (const event of events) {
-          if (!event.due_at) continue;
-          const key = kstDay(event.due_at);
+          const calendarTime = eventCalendarTime(event);
+          if (!calendarTime) continue;
+          const key = kstDay(calendarTime);
           (byDay[key] ??= []).push(typeLabels[event.event_type]);
         }
         return (
@@ -239,10 +264,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <h2 style={{ marginTop: 0 }}>일정 직접 추가</h2>
             <Link href="/dashboard" className="muted" style={{ fontSize: 13 }}>닫기 ✕</Link>
           </div>
-          <form action={createEvent} style={{ display: "grid", gridTemplateColumns: "minmax(130px, 1fr) minmax(150px, 1.5fr) minmax(90px, 0.8fr) minmax(180px, 1fr) auto", gap: 12, alignItems: "end" }}>
+          <form action={createEvent} style={{ display: "grid", gridTemplateColumns: "minmax(130px, 1fr) minmax(150px, 1.5fr) minmax(90px, 0.8fr) repeat(2, minmax(180px, 1fr)) auto", gap: 12, alignItems: "end" }}>
             <label className="label">과목(작업)<input className="field" name="subject" placeholder="예: 컴퓨터 프로그래밍" /></label>
             <label className="label">제목<input className="field" name="title" placeholder="예: 보고서 제출" required /></label>
             <label className="label">유형<select className="field" name="event_type" defaultValue="assignment">{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="label">시작<input className="field" name="starts_at" type="datetime-local" defaultValue={dateParam ? `${dateParam}T09:00` : undefined} /></label>
             <label className="label">마감<input className="field" name="due_at" type="datetime-local" defaultValue={dateParam ? `${dateParam}T23:59` : undefined} required /></label>
             <button className="button button-primary">추가</button>
           </form>
@@ -250,12 +276,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       )}
 
       <section style={{ display: "grid", gap: 12 }}>
-        {(dateParam ? events.filter((event) => event.due_at && kstDay(event.due_at) === dateParam) : events).length === 0 && (
+        {visibleEvents.length === 0 && (
           <div className="card muted" style={{ padding: 36, textAlign: "center" }}>
             {dateParam ? "이 날짜에는 일정이 없어요." : "아직 일정이 없습니다. 첫 일정을 추가해보세요."}
           </div>
         )}
-        {(dateParam ? events.filter((event) => event.due_at && kstDay(event.due_at) === dateParam) : events).map((event) => {
+        {visibleEvents.map((event) => {
           const urgency = event.is_completed
             ? { level: "none" as const, label: "완료", background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }
             : getUrgency(event.due_at);
@@ -270,6 +296,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           };
           const mascotSrc = event.is_completed ? "/mascot/happy.png" : mascotByLevel[urgency.level];
           const bigLabel = urgency.level === "overdue" ? "마감 경과! 긴급!" : urgency.label;
+          const isCanvasEvent = Boolean(
+            canvasSource
+            && event.source_id === canvasSource.id
+            && event.external_uid?.startsWith("canvas:"),
+          );
+          const hasOverrides = isCanvasEvent && (event.override_fields?.length ?? 0) > 0;
 
           if (editId === event.id) {
             return (
@@ -283,14 +315,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     <label className="label">과목(작업)<input className="field" name="subject" defaultValue={event.subject ?? ""} placeholder="예: 컴퓨터 프로그래밍" /></label>
                     <label className="label">제목<input className="field" name="title" defaultValue={event.title} required /></label>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                     <label className="label">유형<select className="field" name="event_type" defaultValue={event.event_type}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                    <label className="label">시작<input className="field" name="starts_at" type="datetime-local" defaultValue={toKstInputValue(event.starts_at)} /></label>
                     <label className="label">마감<input className="field" name="due_at" type="datetime-local" defaultValue={toKstInputValue(event.due_at)} /></label>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button className="button button-primary">저장</button>
                     <Link href="/dashboard" className="button button-muted">취소</Link>
                   </div>
+                  {isCanvasEvent && (
+                    <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                      여기서 바꾼 제목·과목·유형·시작·마감은 다음 동기화에서도 유지됩니다.
+                    </p>
+                  )}
                 </form>
               </article>
             );
@@ -330,11 +368,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     {canvasSource && event.source_id === canvasSource.id && (
                       <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, background: "var(--primary-pale)", color: "var(--primary-deep)", borderRadius: 6, padding: "1px 6px" }}>러닝엑스</span>
                     )}
+                    {hasOverrides && (
+                      <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, background: "#fff8e8", color: "#8a5a00", borderRadius: 6, padding: "1px 6px" }}>사용자 수정됨</span>
+                    )}
                   </p>
                 )}
                 <h3 style={{ margin: 0, fontSize: 16, textDecoration: event.is_completed ? "line-through" : "none" }}>{event.title}</h3>
                 <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-                  {event.due_at ? new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Seoul" }).format(new Date(event.due_at)) : "마감 없음"}
+                  {event.starts_at && <><span>시작 {formatKstDateTime(event.starts_at)}</span><br /></>}
+                  {event.due_at ? `마감 ${formatKstDateTime(event.due_at)}` : "마감 없음"}
                 </p>
               </div>
               <div style={{ display: "grid", alignContent: "center", justifyItems: "end", gap: 8 }}>
@@ -353,6 +395,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <div style={{ display: "flex", gap: 8 }}>
                   <CompleteButton id={event.id} isCompleted={event.is_completed} />
                   <Link href={`/dashboard?edit=${event.id}`} className="button button-muted">수정</Link>
+                  {hasOverrides && (
+                    <form action={restoreLearnXOriginal}>
+                      <input type="hidden" name="id" value={event.id} />
+                      <button className="button button-muted">원본으로 되돌리기</button>
+                    </form>
+                  )}
                   <form action={deleteEvent}><input type="hidden" name="id" value={event.id} /><button className="button button-danger">삭제</button></form>
                 </div>
               </div>

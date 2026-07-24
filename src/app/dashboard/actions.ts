@@ -7,11 +7,13 @@ import { createClient } from "@/lib/supabase/server";
 import { transcribeNoticeImage } from "@/lib/ai-parser";
 import { parseKstLocal } from "@/lib/datetime";
 import { canvasSyncErrorInfo, syncCanvasSource, type CanvasSyncErrorCode } from "@/lib/canvas/sync";
+import { OVERRIDABLE_FIELDS, type OverrideField } from "@/lib/canvas/mapping";
 
 const eventSchema = z.object({
   title: z.string().trim().min(1).max(200),
   subject: z.string().trim().max(100).optional().transform((value) => (value && value.length > 0 ? value : null)),
   event_type: z.enum(["assignment", "exam", "presentation", "application", "event", "other"]),
+  starts_at: z.string().optional().transform((value) => (value && value.length > 0 ? value : null)),
   due_at: z.string().min(1),
 });
 
@@ -32,6 +34,7 @@ export async function createEvent(formData: FormData) {
     title: parsed.data.title,
     subject: parsed.data.subject,
     event_type: parsed.data.event_type,
+    starts_at: parsed.data.starts_at ? parseKstLocal(parsed.data.starts_at).toISOString() : null,
     due_at: parseKstLocal(parsed.data.due_at).toISOString(),
   });
   revalidatePath("/dashboard");
@@ -42,6 +45,7 @@ const updateSchema = z.object({
   title: z.string().trim().min(1).max(200),
   subject: z.string().trim().max(100).optional().transform((value) => (value && value.length > 0 ? value : null)),
   event_type: z.enum(["assignment", "exam", "presentation", "application", "event", "other"]),
+  starts_at: z.string().optional().transform((value) => (value && value.length > 0 ? value : null)),
   due_at: z.string().optional().transform((value) => (value && value.length > 0 ? value : null)),
 });
 
@@ -49,14 +53,64 @@ export async function updateEvent(formData: FormData) {
   const parsed = updateSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/dashboard");
   const { supabase } = await authenticatedClient();
-  await supabase.from("events").update({
+  const { data: current, error } = await supabase
+    .from("events")
+    .select("source_id, external_uid, title, subject, event_type, starts_at, due_at, override_fields")
+    .eq("id", parsed.data.id)
+    .single();
+  if (error || !current) redirect("/dashboard");
+
+  const next = {
     title: parsed.data.title,
     subject: parsed.data.subject,
     event_type: parsed.data.event_type,
+    starts_at: parsed.data.starts_at ? parseKstLocal(parsed.data.starts_at).toISOString() : null,
     due_at: parsed.data.due_at ? parseKstLocal(parsed.data.due_at).toISOString() : null,
-  }).eq("id", parsed.data.id);
+  };
+  const patch: typeof next & { override_fields?: string[] } = next;
+  if (current.source_id && current.external_uid?.startsWith("canvas:")) {
+    const overrides = new Set<OverrideField>(
+      current.override_fields.filter(
+        (field): field is OverrideField => OVERRIDABLE_FIELDS.includes(field as OverrideField),
+      ),
+    );
+    for (const field of OVERRIDABLE_FIELDS) {
+      const currentValue = current[field];
+      const nextValue = next[field];
+      const changed = field === "starts_at" || field === "due_at"
+        ? currentValue !== nextValue && Date.parse(currentValue ?? "") !== Date.parse(nextValue ?? "")
+        : currentValue !== nextValue;
+      if (changed) overrides.add(field);
+    }
+    patch.override_fields = [...overrides];
+  }
+
+  await supabase.from("events").update(patch).eq("id", parsed.data.id);
   revalidatePath("/dashboard");
   redirect("/dashboard");
+}
+
+export async function restoreLearnXOriginal(formData: FormData) {
+  const id = z.uuid().safeParse(formData.get("id"));
+  if (!id.success) redirect("/dashboard");
+  const { supabase } = await authenticatedClient();
+  const { data: event, error } = await supabase
+    .from("events")
+    .select("source_id, external_uid")
+    .eq("id", id.data)
+    .single();
+  if (error || !event?.source_id || !event.external_uid?.startsWith("canvas:")) {
+    redirect("/dashboard");
+  }
+
+  const { error: updateError } = await supabase
+    .from("events")
+    .update({ override_fields: [] })
+    .eq("id", id.data);
+  if (updateError) redirect("/dashboard?restoreError=1");
+
+  const result = await syncLearnXNow();
+  redirect(result.ok ? "/dashboard?restored=1" : "/dashboard?restoreError=1");
 }
 
 export async function toggleEvent(formData: FormData) {
