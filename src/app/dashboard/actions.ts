@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { transcribeNoticeImage } from "@/lib/ai-parser";
 import { parseKstLocal } from "@/lib/datetime";
+import { syncCanvasSource } from "@/lib/canvas/sync";
 
 const eventSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -74,7 +75,36 @@ export async function deleteEvent(formData: FormData) {
   const id = z.uuid().safeParse(formData.get("id"));
   if (!id.success) return;
   const { supabase } = await authenticatedClient();
-  await supabase.from("events").delete().eq("id", id.data);
+  const { data: event } = await supabase.from("events").select("source_id").eq("id", id.data).single();
+  if (event?.source_id) {
+    // 연동 카드는 지우면 다음 동기화 때 되살아나므로 "숨김"으로 처리한다
+    await supabase.from("events").update({ is_hidden: true }).eq("id", id.data);
+  } else {
+    await supabase.from("events").delete().eq("id", id.data);
+  }
+  revalidatePath("/dashboard");
+}
+
+export async function syncLearnXNow() {
+  const { supabase, userId } = await authenticatedClient();
+  const { data: source } = await supabase
+    .from("sources")
+    .select("id, user_id, credential_ciphertext")
+    .eq("user_id", userId)
+    .eq("type", "canvas")
+    .eq("status", "active")
+    .maybeSingle();
+  if (source?.credential_ciphertext) {
+    try {
+      await syncCanvasSource(supabase, {
+        id: source.id,
+        user_id: source.user_id,
+        credential_ciphertext: source.credential_ciphertext,
+      });
+    } catch {
+      // 실패 내용은 sources.status/last_sync_error에 기록됨 — 대시보드 배너가 안내
+    }
+  }
   revalidatePath("/dashboard");
 }
 

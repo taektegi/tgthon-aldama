@@ -10,6 +10,7 @@ import { ClipboardAnalyzeButton } from "./ClipboardAnalyzeButton";
 import { CompleteButton } from "./CompleteButton";
 import { NotificationSetup } from "./NotificationSetup";
 import { StartViewButton } from "./StartViewButton";
+import LearnXSync from "./LearnXSync";
 
 const kstDay = (iso: string) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date(iso));
 
@@ -48,12 +49,18 @@ function buildHero(events: Array<{ is_completed: boolean; due_at: string | null 
   return { heroImg: "/mascot/neutral.png", heroMessage: "아직 일정이 없어요. 첫 카드를 만들어볼까요?" };
 }
 
+function buildSyncedLabel(lastSyncedAt: string | null): string | null {
+  if (!lastSyncedAt) return null;
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(lastSyncedAt).getTime()) / 60000));
+  return `러닝엑스 · ${minutes}분 전 동기화`;
+}
+
 const typeLabels: Record<string, string> = {
   assignment: "과제", exam: "시험", presentation: "발표", application: "신청", event: "행사", other: "기타",
 };
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ edit?: string; add?: string; error?: string; view?: string; date?: string; m?: string }> }) {
-  const { edit: editId, add: addMode, error: errorMsg, view: viewParam, date: dateParam, m: mParam } = await searchParams;
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ edit?: string; add?: string; error?: string; view?: string; date?: string; m?: string; connected?: string }> }) {
+  const { edit: editId, add: addMode, error: errorMsg, view: viewParam, date: dateParam, m: mParam, connected } = await searchParams;
   const cookieStore = await cookies();
   const savedView = cookieStore.get("aldama_view")?.value;
   const view = viewParam === "calendar" || viewParam === "list" ? viewParam : savedView === "calendar" ? "calendar" : "list";
@@ -63,8 +70,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { data: claimsData } = await supabase.auth.getClaims();
   if (!claimsData?.claims) redirect("/login");
 
-  const { data } = await supabase.from("events").select("*").order("is_completed").order("due_at", { nullsFirst: false });
+  const { data } = await supabase.from("events").select("*").eq("is_hidden", false).order("is_completed").order("due_at", { nullsFirst: false });
   const events = data ?? [];
+
+  const { data: canvasSource } = await supabase
+    .from("sources")
+    .select("id, status, last_synced_at")
+    .eq("type", "canvas")
+    .maybeSingle();
 
   const { heroImg, heroMessage } = buildHero(events);
 
@@ -79,6 +92,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <NotificationSetup />
       </div>
 
+      {connected !== undefined && (
+        <section className="card" style={{ padding: 14, marginBottom: 16, background: "var(--primary-pale)", fontWeight: 700 }}>
+          🎉 러닝엑스가 연결됐어요! 과제 {connected}개를 가져왔어요.
+        </section>
+      )}
+
+      {canvasSource?.status === "error" && (
+        <section className="card" style={{ padding: 14, marginBottom: 16, background: "#fff0f0", color: "#b42318", fontWeight: 700 }}>
+          러닝엑스 연결이 끊겼어요. <Link href="/connect/learnx" style={{ color: "#b42318", textDecoration: "underline" }}>다시 연결하기</Link>
+        </section>
+      )}
+
       <section className="mascot-card" style={{ marginBottom: 24, justifyContent: "space-between", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <Image src={heroImg} alt="" width={90} height={90} style={{ height: 80, width: "auto" }} />
@@ -87,12 +112,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>알다마 펭귄이 마감을 지켜보고 있어요.</p>
           </div>
         </div>
-        <Link href="/dashboard?add=choose" className="button button-accent">+ 계획 추가하기!</Link>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {!canvasSource && <Link href="/connect/learnx" className="button button-primary">🔗 러닝엑스 연결</Link>}
+          <Link href="/dashboard?add=choose" className="button button-accent">+ 계획 추가하기!</Link>
+        </div>
       </section>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
         <Link href="/dashboard?view=calendar" className={`button ${view === "calendar" ? "button-primary" : "button-muted"}`}>📅 캘린더</Link>
         <Link href="/dashboard?view=list" className={`button ${view === "list" ? "button-primary" : "button-muted"}`}>📋 할 일 목록</Link>
+        <LearnXSync
+          lastSyncedAt={canvasSource?.last_synced_at ?? null}
+          syncedLabel={buildSyncedLabel(canvasSource?.last_synced_at ?? null)}
+          active={canvasSource?.status === "active"}
+        />
         <span style={{ marginLeft: "auto" }}><StartViewButton view={view} /></span>
       </div>
 
@@ -282,7 +315,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   {bigLabel}
                 </p>
                 {event.subject && (
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "var(--primary-deep)" }}>{event.subject}</p>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "var(--primary-deep)" }}>
+                    {event.subject}
+                    {canvasSource && event.source_id === canvasSource.id && (
+                      <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, background: "var(--primary-pale)", color: "var(--primary-deep)", borderRadius: 6, padding: "1px 6px" }}>러닝엑스</span>
+                    )}
+                  </p>
                 )}
                 <h3 style={{ margin: 0, fontSize: 16, textDecoration: event.is_completed ? "line-through" : "none" }}>{event.title}</h3>
                 <p className="muted" style={{ margin: 0, fontSize: 13 }}>
