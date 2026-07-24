@@ -71,6 +71,7 @@ describe("planChanges", () => {
     const plan = planChanges([past], new Map([["canvas:42", { id: "e1", is_completed: false }]]), now);
     expect(plan.toUpdate[0].id).toBe("e1");
     expect(plan.toUpdate[0].patch.due_at).toBe("2026-07-01T00:00:00Z");
+    expect("is_hidden" in plan.toUpdate[0].patch).toBe(false);
   });
 
   it("알다마에서 수동 완료한 카드를 미제출이라고 되돌리지 않는다", () => {

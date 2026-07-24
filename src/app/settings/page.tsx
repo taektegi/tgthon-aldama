@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { signOut, syncLearnXNow } from "../dashboard/actions";
+import { signOut, syncLearnXFromForm } from "../dashboard/actions";
 import { disconnectLearnX } from "../connect/learnx/actions";
 import { StartViewToggle } from "../dashboard/StartViewButton";
 
@@ -12,7 +12,12 @@ function syncedLabel(lastSyncedAt: string | null): string {
   return `마지막 동기화 ${minutes}분 전`;
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ learnxError?: string }>;
+}) {
+  const { learnxError } = await searchParams;
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   if (!claimsData?.claims) redirect("/login");
@@ -22,7 +27,7 @@ export default async function SettingsPage() {
 
   const { data: canvasSource } = await supabase
     .from("sources")
-    .select("id, name, status, last_synced_at")
+    .select("id, name, status, last_synced_at, last_sync_error")
     .eq("type", "canvas")
     .maybeSingle();
 
@@ -48,7 +53,7 @@ export default async function SettingsPage() {
             <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>
               {canvasSource.status === "error"
                 ? "⚠️ 연결이 끊겼어요. 다시 연결해주세요."
-                : `연결됨 (${canvasSource.name}) · ${syncedLabel(canvasSource.last_synced_at)}`}
+                : `${canvasSource.last_sync_error ? "⚠️ 최근 동기화 실패 · " : ""}연결됨 (${canvasSource.name}) · ${syncedLabel(canvasSource.last_synced_at)}`}
             </p>
           ) : (
             <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>아직 연결 안 됨 — 연결하면 과제가 자동으로 카드에 들어와요.</p>
@@ -60,7 +65,7 @@ export default async function SettingsPage() {
               {canvasSource.status === "error" ? (
                 <Link href="/connect/learnx" className="button button-primary">다시 연결하기</Link>
               ) : (
-                <form action={syncLearnXNow}><button className="button button-primary">지금 동기화</button></form>
+                <form action={syncLearnXFromForm}><button className="button button-primary">지금 동기화</button></form>
               )}
               <form action={disconnectLearnX}><button className="button button-danger">연결 해제</button></form>
             </>
@@ -71,6 +76,11 @@ export default async function SettingsPage() {
         {canvasSource && (
           <p className="muted" style={{ margin: 0, fontSize: 12 }}>
             연결을 해제해도 이미 만들어진 카드는 남아요. 완전히 끊으려면 e-Campus 설정에서 토큰도 삭제하세요.
+          </p>
+        )}
+        {learnxError === "disconnect" && (
+          <p style={{ margin: 0, color: "#c0392b", fontSize: 13 }}>
+            연결을 해제하지 못했어요. 잠시 후 다시 시도해주세요.
           </p>
         )}
       </section>

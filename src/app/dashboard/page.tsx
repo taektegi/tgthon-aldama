@@ -58,8 +58,8 @@ const typeLabels: Record<string, string> = {
   assignment: "과제", exam: "시험", presentation: "발표", application: "신청", event: "행사", other: "기타",
 };
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ edit?: string; add?: string; error?: string; view?: string; date?: string; m?: string; connected?: string }> }) {
-  const { edit: editId, add: addMode, error: errorMsg, view: viewParam, date: dateParam, m: mParam, connected } = await searchParams;
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ edit?: string; add?: string; error?: string; view?: string; date?: string; m?: string; connected?: string; syncError?: string }> }) {
+  const { edit: editId, add: addMode, error: errorMsg, view: viewParam, date: dateParam, m: mParam, connected, syncError } = await searchParams;
   const cookieStore = await cookies();
   const savedView = cookieStore.get("aldama_view")?.value;
   const view = viewParam === "calendar" || viewParam === "list" ? viewParam : savedView === "calendar" ? "calendar" : "list";
@@ -74,7 +74,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const { data: canvasSource } = await supabase
     .from("sources")
-    .select("id, status, last_synced_at")
+    .select("id, status, last_synced_at, last_sync_error")
     .eq("type", "canvas")
     .maybeSingle();
 
@@ -97,9 +97,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </section>
       )}
 
+      {syncError && syncError !== "TOKEN_INVALID" && (
+        <section className="card" style={{ padding: 14, marginBottom: 16, background: "#fff8e8", color: "#8a5a00", fontWeight: 700 }}>
+          러닝엑스 연결은 저장했지만 첫 동기화는 완료하지 못했어요. 잠시 후 &lsquo;지금 동기화&rsquo;를 눌러주세요.
+        </section>
+      )}
+
       {canvasSource?.status === "error" && (
         <section className="card" style={{ padding: 14, marginBottom: 16, background: "#fff0f0", color: "#b42318", fontWeight: 700 }}>
           러닝엑스 연결이 끊겼어요. <Link href="/connect/learnx" style={{ color: "#b42318", textDecoration: "underline" }}>다시 연결하기</Link>
+        </section>
+      )}
+
+      {canvasSource?.status === "active" && canvasSource.last_sync_error && (
+        <section className="card" style={{ padding: 14, marginBottom: 16, background: "#fff8e8", color: "#8a5a00", fontWeight: 700 }}>
+          최근 러닝엑스 동기화가 일시적으로 실패했어요. 기존 일정은 그대로 유지됩니다.
         </section>
       )}
 

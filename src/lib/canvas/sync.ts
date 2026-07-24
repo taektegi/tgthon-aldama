@@ -1,85 +1,129 @@
-// 동기화 한 바퀴: 금고 열기 → 학교 다녀오기 → 번역 → 카드 반영 → 기록.
-// 서버 액션(사용자 클릭)과 Netlify 예약 함수(1시간마다) 둘 다 이 함수를 부른다.
+// One synchronization pass shared by user-triggered actions and the hourly Netlify function.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../database.types";
 import { decryptSecret } from "../crypto";
-import { CanvasAuthError, fetchActiveCourses, fetchCourseAssignments } from "./api";
+import {
+  CanvasApiError,
+  CanvasAuthError,
+  CanvasNetworkError,
+  CanvasRateLimitError,
+  CanvasTemporaryError,
+  fetchActiveCourses,
+  fetchCourseAssignments,
+} from "./api";
 import { planChanges, toEventRow, type EventUpsertRow } from "./mapping";
 
 type Client = SupabaseClient<Database>;
-type CanvasSource = { id: string; user_id: string; credential_ciphertext: string };
+export type CanvasSource = { id: string; user_id: string; credential_ciphertext: string };
+
+export type CanvasSyncErrorCode =
+  | "TOKEN_INVALID"
+  | "RATE_LIMITED"
+  | "CANVAS_TEMPORARY"
+  | "NETWORK_ERROR"
+  | "CANVAS_ERROR"
+  | "SYNC_DATABASE_ERROR"
+  | "SYNC_ERROR";
+
+class CanvasSyncDatabaseError extends Error {}
+
+export function canvasSyncErrorInfo(error: unknown): { code: CanvasSyncErrorCode; message: string } {
+  if (error instanceof CanvasAuthError) return { code: "TOKEN_INVALID", message: "Canvas token is invalid" };
+  if (error instanceof CanvasRateLimitError) return { code: "RATE_LIMITED", message: "Canvas rate limit reached" };
+  if (error instanceof CanvasTemporaryError) return { code: "CANVAS_TEMPORARY", message: "Canvas is temporarily unavailable" };
+  if (error instanceof CanvasNetworkError) return { code: "NETWORK_ERROR", message: "Canvas network request failed" };
+  if (error instanceof CanvasApiError) return { code: "CANVAS_ERROR", message: "Canvas request failed" };
+  if (error instanceof CanvasSyncDatabaseError) return { code: "SYNC_DATABASE_ERROR", message: "Database synchronization failed" };
+  return { code: "SYNC_ERROR", message: "Canvas synchronization failed" };
+}
+
+function databaseError(context: string): CanvasSyncDatabaseError {
+  // Do not embed Supabase's raw response: user data or implementation details can be present there.
+  return new CanvasSyncDatabaseError(context);
+}
 
 export async function syncCanvasSource(supabase: Client, source: CanvasSource) {
-  // 작업 일지를 먼저 편다 (성공하든 실패하든 기록이 남게)
-  const { data: run } = await supabase
-    .from("sync_runs")
-    .insert({ user_id: source.user_id, source_id: source.id })
-    .select("id")
-    .single();
+  let runId: string | null = null;
 
   try {
+    const { data: run, error: runError } = await supabase
+      .from("sync_runs")
+      .insert({ user_id: source.user_id, source_id: source.id })
+      .select("id")
+      .single();
+    if (runError || !run) throw databaseError("Could not create synchronization run");
+    runId = run.id;
+
     const token = decryptSecret(source.credential_ciphertext);
     const courses = await fetchActiveCourses(token);
 
-    const rows: EventUpsertRow[] = [];
+    const rowsByExternalUid = new Map<string, EventUpsertRow>();
     for (const course of courses) {
       const assignments = await fetchCourseAssignments(token, course.id);
       for (const assignment of assignments) {
         const row = toEventRow(assignment, course.name, source.user_id, source.id);
-        if (row) rows.push(row);
+        if (row) rowsByExternalUid.set(row.external_uid, row);
       }
     }
 
-    // 이미 만들어진 카드들을 이름표(external_uid)로 조회
-    const { data: existingRows } = await supabase
+    const { data: existingRows, error: existingError } = await supabase
       .from("events")
       .select("id, external_uid, is_completed")
       .eq("source_id", source.id);
+    if (existingError) throw databaseError("Could not load existing events");
+
     const existing = new Map(
       (existingRows ?? [])
         .filter((row) => row.external_uid !== null)
         .map((row) => [row.external_uid as string, { id: row.id, is_completed: row.is_completed }]),
     );
+    const plan = planChanges([...rowsByExternalUid.values()], existing, new Date());
 
-    const plan = planChanges(rows, existing, new Date());
     if (plan.toInsert.length > 0) {
       const { error } = await supabase.from("events").insert(plan.toInsert);
-      if (error) throw new Error(`insert failed: ${error.message}`);
+      if (error) throw databaseError("Could not insert Canvas events");
     }
     for (const { id, patch } of plan.toUpdate) {
       const { error } = await supabase.from("events").update(patch).eq("id", id);
-      if (error) throw new Error(`update failed: ${error.message}`);
+      if (error) throw databaseError("Could not update Canvas event");
     }
 
-    await supabase
+    const finishedAt = new Date().toISOString();
+    const { error: sourceError } = await supabase
       .from("sources")
-      .update({ status: "active", last_synced_at: new Date().toISOString(), last_sync_error: null })
+      .update({ status: "active", last_synced_at: finishedAt, last_sync_error: null })
       .eq("id", source.id);
-    if (run) {
+    if (sourceError) throw databaseError("Could not update Canvas source");
+
+    const { error: finishError } = await supabase
+      .from("sync_runs")
+      .update({
+        status: "succeeded",
+        finished_at: finishedAt,
+        inserted_count: plan.toInsert.length,
+        updated_count: plan.toUpdate.length,
+      })
+      .eq("id", runId);
+    if (finishError) throw databaseError("Could not finish synchronization run");
+
+    return { inserted: plan.toInsert.length, updated: plan.toUpdate.length, syncedAt: finishedAt };
+  } catch (error) {
+    const info = canvasSyncErrorInfo(error);
+    const sourcePatch = error instanceof CanvasAuthError
+      ? { status: "error" as const, last_sync_error: info.code }
+      : { last_sync_error: info.code };
+    await supabase.from("sources").update(sourcePatch).eq("id", source.id);
+
+    if (runId) {
       await supabase
         .from("sync_runs")
         .update({
-          status: "succeeded",
+          status: "failed",
           finished_at: new Date().toISOString(),
-          inserted_count: plan.toInsert.length,
-          updated_count: plan.toUpdate.length,
+          error_code: info.code,
+          error_message: info.message,
         })
-        .eq("id", run.id);
-    }
-    return { inserted: plan.toInsert.length, updated: plan.toUpdate.length };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "unknown";
-    if (error instanceof CanvasAuthError) {
-      // 토큰이 무효 → 대시보드에 "다시 연결해주세요" 배너를 띄우는 근거
-      await supabase.from("sources").update({ status: "error", last_sync_error: "TOKEN_INVALID" }).eq("id", source.id);
-    } else {
-      await supabase.from("sources").update({ last_sync_error: message }).eq("id", source.id);
-    }
-    if (run) {
-      await supabase
-        .from("sync_runs")
-        .update({ status: "failed", finished_at: new Date().toISOString(), error_message: message })
-        .eq("id", run.id);
+        .eq("id", runId);
     }
     throw error;
   }

@@ -6,7 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { transcribeNoticeImage } from "@/lib/ai-parser";
 import { parseKstLocal } from "@/lib/datetime";
-import { syncCanvasSource } from "@/lib/canvas/sync";
+import { canvasSyncErrorInfo, syncCanvasSource, type CanvasSyncErrorCode } from "@/lib/canvas/sync";
 
 const eventSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -87,26 +87,39 @@ export async function deleteEvent(formData: FormData) {
 
 export async function syncLearnXNow() {
   const { supabase, userId } = await authenticatedClient();
-  const { data: source } = await supabase
+  const { data: source, error: sourceError } = await supabase
     .from("sources")
     .select("id, user_id, credential_ciphertext")
     .eq("user_id", userId)
     .eq("type", "canvas")
     .eq("status", "active")
     .maybeSingle();
-  if (source?.credential_ciphertext) {
-    try {
-      await syncCanvasSource(supabase, {
+  if (sourceError) {
+    return { ok: false as const, code: "SYNC_DATABASE_ERROR" as const };
+  }
+  if (!source?.credential_ciphertext) {
+    return { ok: false as const, code: "NOT_CONNECTED" as const };
+  }
+
+  try {
+    const result = await syncCanvasSource(supabase, {
         id: source.id,
         user_id: source.user_id,
         credential_ciphertext: source.credential_ciphertext,
-      });
-    } catch {
-      // 실패 내용은 sources.status/last_sync_error에 기록됨 — 대시보드 배너가 안내
-    }
+    });
+    revalidatePath("/dashboard");
+    revalidatePath("/settings");
+    return { ok: true as const, ...result };
+  } catch (error) {
+    const { code } = canvasSyncErrorInfo(error);
+    revalidatePath("/dashboard");
+    revalidatePath("/settings");
+    return { ok: false as const, code: code satisfies CanvasSyncErrorCode };
   }
-  revalidatePath("/dashboard");
-  revalidatePath("/settings");
+}
+
+export async function syncLearnXFromForm() {
+  await syncLearnXNow();
 }
 
 export async function analyzeNoticeImage(formData: FormData) {
