@@ -48,7 +48,7 @@ async function callGemini(rawText: string, now: Date): Promise<NoticeCandidate[]
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
   const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent",
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
@@ -78,7 +78,9 @@ async function callGemini(rawText: string, now: Date): Promise<NoticeCandidate[]
   );
 
   if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`);
+    // 거절 사유 전문까지 남긴다 (429 등은 사유가 여러 가지라 번호만으론 진단 불가)
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Gemini API error: ${response.status} ${detail.slice(0, 500)}`);
   }
 
   const data = await response.json();
@@ -102,7 +104,7 @@ export async function transcribeNoticeImage(base64Data: string, mimeType: string
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
   const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent",
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
@@ -123,7 +125,10 @@ export async function transcribeNoticeImage(base64Data: string, mimeType: string
     },
   );
 
-  if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Gemini API error: ${response.status} ${detail.slice(0, 500)}`);
+  }
   const data = await response.json();
   const text: unknown = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (typeof text !== "string" || text.trim().length === 0) throw new Error("이미지에서 텍스트를 찾지 못했어요");
