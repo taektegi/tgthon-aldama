@@ -106,6 +106,7 @@ export async function syncLearnXNow() {
     }
   }
   revalidatePath("/dashboard");
+  revalidatePath("/settings");
 }
 
 export async function analyzeNoticeImage(formData: FormData) {

@@ -5,11 +5,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUrgency } from "@/lib/urgency";
 import { toKstInputValue } from "@/lib/datetime";
-import { analyzeNoticeImage, createEvent, deleteEvent, signOut, updateEvent } from "./actions";
+import { analyzeNoticeImage, createEvent, deleteEvent, updateEvent } from "./actions";
 import { ClipboardAnalyzeButton } from "./ClipboardAnalyzeButton";
 import { CompleteButton } from "./CompleteButton";
 import { NotificationSetup } from "./NotificationSetup";
-import { StartViewButton } from "./StartViewButton";
 import LearnXSync from "./LearnXSync";
 
 const kstDay = (iso: string) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date(iso));
@@ -85,7 +84,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <main className="shell" style={{ padding: "38px 0 80px" }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
         <div><p style={{ color: "var(--primary-deep)", fontWeight: 800, margin: 0 }}>ALDAMA</p><h1 style={{ margin: "5px 0 0" }}>내 일정 카드</h1></div>
-        <form action={signOut}><button className="button button-muted">로그아웃</button></form>
+        <Link href="/settings" className="button button-muted">⚙️ 설정</Link>
       </header>
 
       <div style={{ marginBottom: 16 }}>
@@ -126,7 +125,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           syncedLabel={buildSyncedLabel(canvasSource?.last_synced_at ?? null)}
           active={canvasSource?.status === "active"}
         />
-        <span style={{ marginLeft: "auto" }}><StartViewButton view={view} /></span>
       </div>
 
       {view === "calendar" && (() => {

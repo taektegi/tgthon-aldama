@@ -14,7 +14,7 @@ Deno.serve(async (request) => {
     const admin = adminClient();
     const { data: source, error } = await admin
       .from("sources")
-      .select("id, user_id, type, status, feed_url_ciphertext")
+      .select("id, user_id, type, status, credential_ciphertext")
       .eq("id", input.source_id)
       .eq("user_id", user.id)
       .eq("type", "ical")
@@ -22,7 +22,7 @@ Deno.serve(async (request) => {
 
     if (error || !source) return json({ error: "SOURCE_NOT_FOUND" }, 404);
 
-    // TODO: decrypt feed_url_ciphertext, fetch the iCal feed, parse VEVENT values,
+    // TODO: decrypt credential_ciphertext, fetch the iCal feed, parse VEVENT values,
     // and upsert by (source_id, external_uid) inside a short transaction.
     return json({ source_id: source.id, status: "not_implemented" }, 501);
   } catch (error) {
