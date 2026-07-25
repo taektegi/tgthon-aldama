@@ -6,7 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { encryptSecret } from "@/lib/crypto";
 import { CanvasAuthError, fetchSelf } from "@/lib/canvas/api";
-import { syncCanvasSource } from "@/lib/canvas/sync";
+import { canvasSyncErrorInfo, syncCanvasSource } from "@/lib/canvas/sync";
 
 async function authenticatedClient() {
   const supabase = await createClient();
@@ -17,6 +17,9 @@ async function authenticatedClient() {
 }
 
 export async function connectLearnX(formData: FormData) {
+  if (!process.env.CANVAS_BASE_URL || !process.env.TOKEN_ENCRYPTION_KEY) {
+    redirect("/connect/learnx?error=config");
+  }
   const token = z.string().trim().min(10).safeParse(formData.get("token"));
   if (!token.success) redirect("/connect/learnx?error=invalid");
   const { supabase, userId } = await authenticatedClient();
@@ -26,23 +29,34 @@ export async function connectLearnX(formData: FormData) {
   try {
     displayName = (await fetchSelf(token.data)).name;
   } catch (error) {
-    redirect(error instanceof CanvasAuthError ? "/connect/learnx?error=invalid" : "/connect/learnx?error=network");
+    const code = canvasSyncErrorInfo(error).code;
+    const reason = error instanceof CanvasAuthError
+      ? "invalid"
+      : code === "RATE_LIMITED"
+        ? "rateLimited"
+        : code === "CANVAS_TEMPORARY"
+          ? "unavailable"
+          : "network";
+    redirect(`/connect/learnx?error=${reason}`);
   }
 
   // 기존 연결이 있으면 토큰 교체(재연결), 없으면 새로 만든다
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("sources")
     .select("id")
     .eq("user_id", userId)
     .eq("type", "canvas")
     .maybeSingle();
+  if (existingError) redirect("/connect/learnx?error=save");
+
   const credential = encryptSecret(token.data);
   let sourceId: string;
   if (existing) {
-    await supabase
+    const { error } = await supabase
       .from("sources")
       .update({ credential_ciphertext: credential, status: "active", last_sync_error: null })
       .eq("id", existing.id);
+    if (error) redirect("/connect/learnx?error=save");
     sourceId = existing.id;
   } else {
     const { data: created, error } = await supabase
@@ -56,6 +70,7 @@ export async function connectLearnX(formData: FormData) {
 
   // 첫 동기화. 실패해도 연결 자체는 저장돼 있으니 대시보드에서 다시 시도 가능
   let inserted = 0;
+  let syncError: string | null = null;
   try {
     const result = await syncCanvasSource(supabase, {
       id: sourceId,
@@ -63,17 +78,20 @@ export async function connectLearnX(formData: FormData) {
       credential_ciphertext: credential,
     });
     inserted = result.inserted;
-  } catch {
-    // sources.status / last_sync_error에 기록됨 — 대시보드 배너가 안내
+  } catch (error) {
+    syncError = canvasSyncErrorInfo(error).code;
   }
   revalidatePath("/dashboard");
-  redirect(`/dashboard?connected=${inserted}`);
+  const query = new URLSearchParams({ connected: String(inserted) });
+  if (syncError) query.set("syncError", syncError);
+  redirect(`/dashboard?${query}`);
 }
 
 export async function disconnectLearnX() {
   const { supabase, userId } = await authenticatedClient();
   // 소스만 삭제 — events.source_id는 on delete set null이라 카드는 남는다
-  await supabase.from("sources").delete().eq("user_id", userId).eq("type", "canvas");
+  const { error } = await supabase.from("sources").delete().eq("user_id", userId).eq("type", "canvas");
+  if (error) redirect("/settings?learnxError=disconnect");
   revalidatePath("/dashboard");
   redirect("/dashboard");
 }

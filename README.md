@@ -11,6 +11,8 @@
 - FK/부분/중복 방지 인덱스
 - 로그인, 회원가입, 일정 생성·완료·삭제 화면
 - 인증이 필요한 `sync-ical`, `sync-notices` Edge Function 뼈대
+- 러닝엑스(Canvas) 토큰 연결과 과제·캘린더 일정 동기화
+  (Canvas ID 중복 방지, 변경분만 갱신, 사용자 수정 필드 보호와 원본 복원)
 
 ## 시작하기
 
@@ -23,6 +25,17 @@ npm run dev
 ```
 
 로컬 Supabase가 출력하는 URL과 publishable key를 `.env.local`에 넣습니다. 현재 `.env.local`은 호스팅된 알다마 프로젝트 값으로 설정되어 있으며 Git에서 제외됩니다.
+
+러닝엑스 연동에는 다음 서버 환경변수도 필요합니다.
+
+```bash
+CANVAS_BASE_URL=https://khcanvas.khu.ac.kr
+NEXT_PUBLIC_CANVAS_BASE_URL=https://khcanvas.khu.ac.kr
+TOKEN_ENCRYPTION_KEY=<openssl rand -base64 32로 생성한 값>
+SUPABASE_SECRET_KEY=<Netlify 예약 함수 전용 Secret Key>
+```
+
+`TOKEN_ENCRYPTION_KEY`와 `SUPABASE_SECRET_KEY`는 실제 값을 커밋하거나 `NEXT_PUBLIC_` 접두사로 노출하지 않습니다. Netlify 배포 환경에도 네 값을 모두 등록해야 하며, `sync-canvas` 함수는 `@hourly` 일정으로 실행됩니다.
 
 ## 데이터베이스 변경
 
@@ -37,6 +50,6 @@ npx supabase migration new descriptive_name
 ## 보안 메모
 
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`만 브라우저에 노출합니다.
-- Secret Key는 `NEXT_PUBLIC_` 환경변수에 두지 않습니다.
-- iCal URL은 평문 저장을 전제로 하지 않습니다. `feed_url_ciphertext`의 암복호화 방식은 동기화 구현 시 확정합니다.
+- Secret Key는 `NEXT_PUBLIC_` 환경변수에 두지 않고 Netlify 예약 함수에서만 사용합니다.
+- Canvas 토큰과 iCal URL은 `credential_ciphertext`에 암호문으로만 저장합니다.
 - Edge Functions는 JWT 검증을 켜고 배포하는 것을 전제로 합니다.

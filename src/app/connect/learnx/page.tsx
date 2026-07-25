@@ -1,10 +1,14 @@
 import Link from "next/link";
+import { canvasSettingsUrl } from "@/lib/canvas/config";
 import { connectLearnX } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid: "토큰이 올바르지 않아요. e-Campus에서 다시 복사해주세요.",
   network: "e-Campus에 연결하지 못했어요. 잠시 후 다시 시도해주세요.",
+  rateLimited: "e-Campus 요청이 많아요. 잠시 후 다시 시도해주세요.",
+  unavailable: "e-Campus가 일시적으로 불안정해요. 잠시 후 다시 시도해주세요.",
   save: "저장 중 문제가 생겼어요. 다시 시도해주세요.",
+  config: "러닝엑스 서버 설정이 완료되지 않았어요. 관리자에게 문의해주세요.",
 };
 
 export default async function ConnectLearnXPage({
@@ -13,7 +17,11 @@ export default async function ConnectLearnXPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const settingsUrl = `${process.env.NEXT_PUBLIC_CANVAS_BASE_URL}/profile/settings`;
+  const settingsUrl = canvasSettingsUrl(
+    process.env.NEXT_PUBLIC_CANVAS_BASE_URL,
+    process.env.CANVAS_BASE_URL,
+  );
+  const serverConfigured = Boolean(process.env.CANVAS_BASE_URL && process.env.TOKEN_ENCRYPTION_KEY);
 
   return (
     <main className="shell" style={{ padding: "38px 0 80px", maxWidth: 520 }}>
@@ -25,9 +33,15 @@ export default async function ConnectLearnXPage({
       <section className="card" style={{ padding: 18, display: "grid", gap: 18 }}>
         <div>
           <p style={{ margin: "0 0 8px", fontWeight: 700 }}>1. e-Campus 설정 열기</p>
-          <a href={settingsUrl} target="_blank" rel="noreferrer" className="button button-primary" style={{ width: "100%" }}>
-            e-Campus 설정 페이지 열기
-          </a>
+          {settingsUrl ? (
+            <a href={settingsUrl} target="_blank" rel="noreferrer" className="button button-primary" style={{ width: "100%" }}>
+              e-Campus 설정 페이지 열기
+            </a>
+          ) : (
+            <p style={{ margin: 0, color: "#c0392b", fontSize: 13 }}>
+              e-Campus 주소가 설정되지 않았어요. 관리자에게 문의해주세요.
+            </p>
+          )}
         </div>
 
         <div>
@@ -52,7 +66,12 @@ export default async function ConnectLearnXPage({
           {error && (
             <p style={{ margin: 0, fontSize: 13, color: "#c0392b" }}>{ERROR_MESSAGES[error] ?? "문제가 생겼어요."}</p>
           )}
-          <button type="submit" className="button button-accent">연결하기</button>
+          <button type="submit" className="button button-accent" disabled={!serverConfigured}>연결하기</button>
+          {!serverConfigured && (
+            <p style={{ margin: 0, color: "#c0392b", fontSize: 13 }}>
+              서버의 러닝엑스 환경변수가 설정되지 않아 지금은 연결할 수 없어요.
+            </p>
+          )}
         </form>
 
         <p className="muted" style={{ margin: 0, fontSize: 12 }}>

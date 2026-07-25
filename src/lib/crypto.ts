@@ -20,6 +20,7 @@ export function encryptSecret(plain: string): string {
 
 export function decryptSecret(ciphertext: string): string {
   const buf = Buffer.from(ciphertext, "base64");
+  if (buf.length < 29) throw new Error("Encrypted secret is invalid");
   const iv = buf.subarray(0, 12);
   const tag = buf.subarray(12, 28); // 변조 감지용 봉인 스티커
   const data = buf.subarray(28);
