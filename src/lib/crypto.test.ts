@@ -27,4 +27,9 @@ describe("encryptSecret/decryptSecret", () => {
     tampered[tampered.length - 1] ^= 1;
     expect(() => decryptSecret(tampered.toString("base64"))).toThrow();
   });
+
+  it("잘못된 형식의 짧은 암호문은 복호화하지 않는다", async () => {
+    const { decryptSecret } = await import("./crypto");
+    expect(() => decryptSecret("not-a-ciphertext")).toThrow("Encrypted secret is invalid");
+  });
 });

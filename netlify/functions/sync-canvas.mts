@@ -3,7 +3,7 @@
 import type { Config } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../../src/lib/database.types.ts";
-import { syncCanvasSource } from "../../src/lib/canvas/sync.ts";
+import { canvasSyncErrorInfo, syncCanvasSource } from "../../src/lib/canvas/sync.ts";
 
 const handler = async () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -34,9 +34,9 @@ const handler = async () => {
         credential_ciphertext: source.credential_ciphertext,
       });
       succeeded += 1;
-    } catch (err) {
+    } catch (error) {
       // 한 명이 실패해도 나머지 사용자는 계속 동기화한다
-      console.error(`sync-canvas: source ${source.id} failed`, err);
+      console.error(`sync-canvas: source ${source.id} failed (${canvasSyncErrorInfo(error).code})`);
     }
   }
   return new Response(`synced ${succeeded}/${sources?.length ?? 0}`, { status: 200 });
