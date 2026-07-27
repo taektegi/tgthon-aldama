@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUrgency } from "@/lib/urgency";
 import { toKstInputValue } from "@/lib/datetime";
 import { analyzeNoticeImage, createEvent, deleteEvent, restoreLearnXOriginal, updateEvent } from "./actions";
+import { AppBadge } from "./AppBadge";
 import { ClipboardAnalyzeButton } from "./ClipboardAnalyzeButton";
 import { CompleteButton } from "./CompleteButton";
 import { NotificationSetup } from "./NotificationSetup";
@@ -52,6 +53,7 @@ function buildHero(events: EventRow[]) {
       heroImg: "/mascot/overdue-run-v2.png",
       heroMessage: `마감이 지난 일정이 ${overdueCount}개 있어요`,
       heroDescription: "가장 급한 일정부터 확인해볼까요?",
+      badgeCount: urgentCount,
     };
   }
   if (urgentCount > 0) {
@@ -59,6 +61,7 @@ function buildHero(events: EventRow[]) {
       heroImg: "/mascot/urgent-run.png",
       heroMessage: `24시간 안에 마감 ${urgentCount}개`,
       heroDescription: "지금 확인하면 충분히 끝낼 수 있어요.",
+      badgeCount: urgentCount,
     };
   }
   if (active.length > 0) {
@@ -66,12 +69,14 @@ function buildHero(events: EventRow[]) {
       heroImg: "/mascot/neutral.png",
       heroMessage: `남은 일정 ${active.length}개`,
       heroDescription: "오늘도 차근차근 진행해봐요.",
+      badgeCount: urgentCount,
     };
   }
   return {
     heroImg: "/mascot/neutral.png",
     heroMessage: "오늘은 여유로운 하루예요",
     heroDescription: "새 공지가 있다면 일정으로 정리해보세요.",
+    badgeCount: urgentCount,
   };
 }
 
@@ -219,7 +224,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     .eq("type", "canvas")
     .maybeSingle();
 
-  const { heroImg, heroMessage, heroDescription } = buildHero(events);
+  const { heroImg, heroMessage, heroDescription, badgeCount } = buildHero(events);
   const activeEvents = visibleEvents.filter((event) => !event.is_completed);
   const priorityEvents = activeEvents.filter((event) => ["overdue", "urgent", "today"].includes(getUrgency(event.due_at).level));
   const upcomingEvents = activeEvents.filter((event) => !priorityEvents.includes(event));
@@ -230,6 +235,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <a className="skip-link" href="#dashboard-main">본문으로 건너뛰기</a>
       <AppNav active={addMode ? "add" : view} />
       <main id="dashboard-main" tabIndex={-1} className="page-shell dashboard-shell">
+        <AppBadge count={badgeCount} />
         <header className="page-header">
           <div>
             <p className="page-header__eyebrow">ALDAMA</p>

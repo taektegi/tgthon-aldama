@@ -170,6 +170,7 @@ img { max-width: 100%; }
   padding: 10px 14px;
   background: var(--surface);
   color: var(--foreground);
+  font-size: 16px;
 }
 
 .field:hover { border-color: var(--primary); }
