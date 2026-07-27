@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { canvasSettingsUrl } from "@/lib/canvas/config";
+import { SubmitButton } from "@/app/login/SubmitButton";
 import { connectLearnX } from "./actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -66,7 +67,17 @@ export default async function ConnectLearnXPage({
           {error && (
             <p style={{ margin: 0, fontSize: 13, color: "#c0392b" }}>{ERROR_MESSAGES[error] ?? "문제가 생겼어요."}</p>
           )}
-          <button type="submit" className="button button-accent" disabled={!serverConfigured}>연결하기</button>
+          {serverConfigured ? (
+            <SubmitButton
+              type="submit"
+              className="button button-accent"
+              pendingLabel="연결하는 중... 최대 1분 정도 걸릴 수 있어요 🐧"
+            >
+              연결하기
+            </SubmitButton>
+          ) : (
+            <button type="submit" className="button button-accent" disabled>연결하기</button>
+          )}
           {!serverConfigured && (
             <p style={{ margin: 0, color: "#c0392b", fontSize: 13 }}>
               서버의 러닝엑스 환경변수가 설정되지 않아 지금은 연결할 수 없어요.
