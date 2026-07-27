@@ -43,7 +43,7 @@ export default function LearnXSync({
   if (!active) return null;
 
   return (
-    <span className="muted" style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+    <span className="learnx-sync" aria-live="polite">
       <span>{isPending ? "러닝엑스 동기화 중..." : syncedLabel ?? "러닝엑스 연결됨"}</span>
       <button
         type="button"
@@ -55,11 +55,11 @@ export default function LearnXSync({
             setTimeout(() => setMessage(""), 2000);
           })
         }
-        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline", color: "var(--primary-deep)", fontSize: 13, fontWeight: 700 }}
+        className="learnx-sync__button"
       >
         지금 동기화
       </button>
-      {message && <span>{message}</span>}
+      {message && <span className="learnx-sync__message">{message}</span>}
     </span>
   );
 }

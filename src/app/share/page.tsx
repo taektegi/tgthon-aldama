@@ -1,27 +1,27 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AppNav } from "@/app/components/AppNav";
+import { EmptyState } from "@/app/components/States";
 import { createClient } from "@/lib/supabase/server";
 import { parseNotice } from "@/lib/ai-parser";
 import { toKstInputValue } from "@/lib/datetime";
 import { saveSharedCandidates } from "./actions";
 
 const typeLabels: Record<string, string> = {
-  assignment: "과제", exam: "시험", presentation: "발표", application: "신청", event: "행사", other: "기타",
+  assignment: "과제",
+  exam: "시험",
+  presentation: "발표",
+  application: "신청",
+  event: "행사",
+  other: "기타",
 };
 
-export default async function SharePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ title?: string; text?: string; url?: string }>;
-}) {
+export default async function SharePage({ searchParams }: { searchParams: Promise<{ title?: string; text?: string; url?: string }> }) {
   const params = await searchParams;
-
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   if (!claimsData?.claims) {
-    const query = new URLSearchParams(
-      Object.entries(params).filter((entry): entry is [string, string] => Boolean(entry[1])),
-    ).toString();
+    const query = new URLSearchParams(Object.entries(params).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
     redirect(`/login?next=${encodeURIComponent(query ? `/share?${query}` : "/share")}`);
   }
 
@@ -29,72 +29,50 @@ export default async function SharePage({
   const { candidates, engine } = rawText.trim().length > 0 ? await parseNotice(rawText) : { candidates: [], engine: "regex" as const };
 
   return (
-    <main className="shell" style={{ padding: "38px 0 80px" }}>
-      <header style={{ marginBottom: 24 }}>
-        <Link href="/dashboard" className="muted">← 대시보드</Link>
-        <h1 style={{ margin: "10px 0 0" }}>공유받은 공지 확인</h1>
-        <p className="muted" style={{ marginTop: 6 }}>
-          {engine === "ai" ? "🤖 AI가 뽑은 내용이에요." : "기본 분석으로 뽑은 내용이에요."} 틀린 부분은 고쳐서 저장하세요.
-        </p>
-      </header>
+    <>
+      <main className="page-shell share-page">
+        <header className="page-header share-page__header">
+          <div>
+            <p className="page-header__eyebrow">공지 분석 결과</p>
+            <h1>저장할 일정을 확인하세요</h1>
+            <p className="page-description">{engine === "ai" ? "AI가 찾은 내용입니다." : "기본 분석으로 찾은 내용입니다."} 잘못된 부분은 저장 전에 수정할 수 있어요.</p>
+          </div>
+        </header>
 
-      {candidates.length === 0 ? (
-        <section className="card" style={{ padding: 24 }}>
-          <p>날짜를 찾지 못했어요. 아래 원문을 참고해서 대시보드에서 직접 추가해주세요.</p>
-          <pre style={{ whiteSpace: "pre-wrap", background: "#f6f6fb", padding: 16, borderRadius: 10, marginTop: 12 }}>
-            {rawText || "(전달된 내용이 없어요)"}
-          </pre>
-          <Link href="/dashboard" className="button button-primary" style={{ display: "inline-block", marginTop: 16 }}>
-            대시보드로 이동
-          </Link>
-        </section>
-      ) : (
-        <form action={saveSharedCandidates} style={{ display: "grid", gap: 16 }}>
-          <input type="hidden" name="total" value={candidates.length} />
-          {candidates.map((candidate, index) => (
-            <section key={index} className="card" style={{ padding: 20, display: "grid", gap: 12 }}>
-              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input type="checkbox" name={`include_${index}`} defaultChecked />
-                <span className="muted" style={{ fontSize: 13 }}>
-                  신뢰도 {Math.round(candidate.confidence * 100)}% · 원문: “{candidate.snippet}”
-                </span>
-              </label>
-              <input type="hidden" name={`snippet_${index}`} value={candidate.snippet} />
-              <input type="hidden" name={`confidence_${index}`} value={candidate.confidence} />
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, 2fr) 1fr minmax(190px, 1fr)", gap: 12 }}>
-                <label className="label">
-                  제목<input className="field" name={`title_${index}`} defaultValue={candidate.title} required />
+        {candidates.length === 0 ? (
+          <EmptyState
+            title="일정 날짜를 찾지 못했어요"
+            description="아래 원문을 확인한 뒤 직접 일정으로 추가해주세요."
+            action={<><pre className="source-preview">{rawText || "(전달된 내용이 없어요)"}</pre><Link href="/dashboard?add=direct" className="button button-primary">직접 추가</Link></>}
+          />
+        ) : (
+          <form action={saveSharedCandidates} className="form-stack share-form">
+            <input type="hidden" name="total" value={candidates.length} />
+            {candidates.map((candidate, index) => (
+              <section key={index} className="card candidate-card">
+                <label className="candidate-card__include">
+                  <input type="checkbox" name={`include_${index}`} defaultChecked />
+                  <span><strong>이 일정 저장</strong><small>분석 신뢰도 {Math.round(candidate.confidence * 100)}%</small></span>
                 </label>
-                <label className="label">
-                  유형
-                  <select className="field" name={`event_type_${index}`} defaultValue={candidate.eventType}>
-                    {Object.entries(typeLabels).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="label">
-                  마감 {!candidate.dueAt && <span className="muted" style={{ fontWeight: 400 }}>(날짜를 못 찾았어요 — 직접 정하거나 비워두세요)</span>}
-                  <input
-                    className="field"
-                    name={`due_at_${index}`}
-                    type="datetime-local"
-                    defaultValue={candidate.dueAt ? toKstInputValue(candidate.dueAt) : ""}
-                  />
-                </label>
-              </div>
+                <input type="hidden" name={`snippet_${index}`} value={candidate.snippet} />
+                <input type="hidden" name={`confidence_${index}`} value={candidate.confidence} />
+                <div className="candidate-card__fields">
+                  <label className="label">제목<input className="field" name={`title_${index}`} defaultValue={candidate.title} required /></label>
+                  <label className="label">유형<select className="field" name={`event_type_${index}`} defaultValue={candidate.eventType}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                  <label className="label">마감<span className="field-help">{candidate.dueAt ? "분석된 날짜를 확인해주세요." : "날짜를 찾지 못했어요. 직접 정하거나 비워둘 수 있어요."}</span><input className="field" name={`due_at_${index}`} type="datetime-local" defaultValue={candidate.dueAt ? toKstInputValue(candidate.dueAt) : ""} /></label>
+                </div>
+                <details className="source-details"><summary>분석한 원문 보기</summary><p>“{candidate.snippet}”</p></details>
+              </section>
+            ))}
+            <section className="card candidate-card">
+              <label className="label">어떤 과목(작업)인가요?<input className="field" name="subject" placeholder="예: 컴퓨터 프로그래밍" required /></label>
+              <p className="field-help">선택한 모든 일정에 같은 과목이 적용됩니다.</p>
             </section>
-          ))}
-          <section className="card" style={{ padding: 20, display: "grid", gap: 8 }}>
-            <label className="label">
-              어떤 과목(작업)인가요?
-              <input className="field" name="subject" placeholder="예: 컴퓨터 프로그래밍" required />
-            </label>
-            <p className="muted" style={{ margin: 0, fontSize: 13 }}>선택한 모든 항목에 이 과목이 붙어요.</p>
-          </section>
-          <button className="button button-primary" type="submit">선택한 항목 저장</button>
-        </form>
-      )}
-    </main>
+            <button className="button button-primary share-save" type="submit">선택한 일정 저장</button>
+          </form>
+        )}
+      </main>
+      <AppNav active="add" />
+    </>
   );
 }
