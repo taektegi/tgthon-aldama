@@ -24,7 +24,7 @@ export function getUrgency(dueAt: string | null, now: Date = new Date()): Urgenc
 
   if (diff <= 6 * HOUR) {
     const hours = Math.max(1, Math.ceil(diff / HOUR));
-    return { level: "urgent", label: `${hours}시간 남음`, background: "#fdeae2", color: "#d64545", fontWeight: 800 };
+    return { level: "urgent", label: `긴급! ${hours}시간 남음`, background: "#fdeae2", color: "#d64545", fontWeight: 800 };
   }
 
   if (diff <= DAY) {
