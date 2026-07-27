@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarIcon, ListIcon, PlusIcon } from "./UiIcons";
 
 type AppNavItem = "list" | "add" | "calendar";
 
@@ -8,9 +9,9 @@ const items: Array<{ id: AppNavItem; href: string; icon: string; label: string }
   { id: "calendar", href: "/dashboard?view=calendar", icon: "□", label: "캘린더" },
 ];
 
-export function AppNav({ active }: { active?: AppNavItem }) {
+export function AppNav({ active, variant = "default" }: { active?: AppNavItem; variant?: "default" | "wallet" }) {
   return (
-    <nav className="app-nav" aria-label="주요 메뉴">
+    <nav className={`app-nav ${variant === "wallet" ? "app-nav--wallet" : ""}`} aria-label="주요 메뉴">
       <div className="app-nav__inner">
         {items.map((item) => {
           const isActive = active === item.id;
@@ -21,7 +22,15 @@ export function AppNav({ active }: { active?: AppNavItem }) {
               className={`app-nav__item ${item.id === "add" ? "app-nav__item--add" : ""}`}
               aria-current={isActive ? "page" : undefined}
             >
-              <span className="app-nav__icon" aria-hidden="true">{item.icon}</span>
+              <span className="app-nav__icon" aria-hidden="true">
+                {variant === "wallet"
+                  ? item.id === "list"
+                    ? <ListIcon />
+                    : item.id === "calendar"
+                      ? <CalendarIcon />
+                      : <PlusIcon />
+                  : item.icon}
+              </span>
               <span>{item.label}</span>
             </Link>
           );
