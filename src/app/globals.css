@@ -325,9 +325,7 @@ textarea.field { resize: vertical; min-height: 116px; }
 .calendar-day:hover { background: var(--surface-soft); }
 .calendar-day--today { background: var(--primary-soft); color: var(--primary-deep); }
 .calendar-day--selected { border-color: var(--primary-deep); }
-.calendar-day__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
-.calendar-day__dot--urgent { background: var(--danger); }
-.calendar-day small { position: absolute; top: 4px; right: 5px; color: var(--muted); font-size: 9px; }
+.calendar-day__count { width: 20px; height: 20px; display: inline-grid; place-items: center; border-radius: 50%; color: var(--muted); font-size: 9px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
 .selected-date { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--space-4); }
 .selected-date strong { display: block; font-size: 18px; }
 
@@ -1325,12 +1323,147 @@ body:has(.dashboard-page) {
   color: #fff;
 }
 
-.dashboard-page .calendar-day__dot {
-  background: #526f89;
+.dashboard-page .calendar-day__count {
+  font-size: 9.5px;
+  font-weight: 800;
 }
 
-.dashboard-page .calendar-day__dot--urgent {
-  background: var(--danger);
+.dashboard-page .calendar-day__count--overdue {
+  background: #b84a4a;
+  color: #fff;
+}
+
+.dashboard-page .calendar-day__count--due-soon {
+  background: #e3a04b;
+  color: #3e2a0a;
+}
+
+.dashboard-page .calendar-day__count--active {
+  background: #dde6ed;
+  color: #2f526c;
+}
+
+.dashboard-page .calendar-day__count--completed {
+  border: 1px solid #c9ced3;
+  color: #6c747c;
+}
+
+.dashboard-page .calendar-day--selected .calendar-day__count {
+  outline: 1.5px solid rgb(255 255 255 / 82%);
+  outline-offset: 1px;
+}
+
+.dashboard-page .calendar-day--selected .calendar-day__count--completed {
+  border-color: #dce5ec;
+  color: #eef3f6;
+}
+
+.dashboard-page .calendar-legend {
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin: 10px 6px 0;
+  color: #687481;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.dashboard-page .calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dashboard-page .calendar-legend__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dashboard-page .calendar-legend__dot--overdue {
+  background: #b84a4a;
+}
+
+.dashboard-page .calendar-legend__dot--due-soon {
+  background: #e3a04b;
+}
+
+.dashboard-page .selected-date--calendar {
+  min-height: 70px;
+  margin: 0 2px 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--dw-line);
+}
+
+.dashboard-page .selected-date--calendar > div {
+  display: grid;
+  gap: 3px;
+}
+
+.dashboard-page .selected-date--calendar strong {
+  color: var(--dw-ink);
+  font-size: 18px;
+  font-weight: 740;
+  letter-spacing: -.025em;
+}
+
+.dashboard-page .selected-date--calendar span {
+  color: var(--dw-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.dashboard-page .calendar-add-button {
+  min-width: 78px;
+  gap: 6px;
+}
+
+.dashboard-page .calendar-add-button svg,
+.dashboard-page .calendar-day-empty .button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.dashboard-page .calendar-selected-events {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-page .calendar-date-prompt,
+.dashboard-page .calendar-day-empty {
+  min-height: 190px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 28px;
+  border-radius: var(--dw-radius-card);
+  background: var(--dw-surface);
+  box-shadow: 0 12px 28px rgb(17 19 24 / 7%);
+  text-align: center;
+}
+
+.dashboard-page .calendar-date-prompt strong,
+.dashboard-page .calendar-day-empty strong {
+  color: var(--dw-ink);
+  font-size: 18px;
+  font-weight: 730;
+  letter-spacing: -.02em;
+}
+
+.dashboard-page .calendar-date-prompt p,
+.dashboard-page .calendar-day-empty p {
+  margin: 0;
+  color: var(--dw-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.dashboard-page .calendar-day-empty .button {
+  margin-top: 8px;
+  gap: 7px;
 }
 
 .dashboard-page .empty-state {

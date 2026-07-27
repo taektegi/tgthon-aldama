@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/app/components/AppNav";
 import { EmptyState, StatusAlert } from "@/app/components/States";
-import { AlertIcon, ArrowLeftIcon, ArrowRightIcon, MoreIcon, SettingsIcon } from "@/app/components/UiIcons";
+import { AlertIcon, ArrowLeftIcon, ArrowRightIcon, MoreIcon, PlusIcon, SettingsIcon } from "@/app/components/UiIcons";
 import type { Database } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { getUrgency } from "@/lib/urgency";
@@ -24,6 +24,22 @@ import LearnXSync from "./LearnXSync";
  */
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
+type CalendarDayStatus = "overdue" | "due-soon" | "active" | "completed";
+
+const calendarDayStatusLabels: Record<CalendarDayStatus, string> = {
+  overdue: "마감 초과 일정 포함",
+  "due-soon": "3일 이내 마감 일정 포함",
+  active: "진행 중 일정 있음",
+  completed: "모든 일정 완료",
+};
+
+function getCalendarDayStatus(events: EventRow[]): CalendarDayStatus {
+  const activeEvents = events.filter((event) => !event.is_completed);
+  if (activeEvents.some((event) => getUrgency(event.due_at).level === "overdue")) return "overdue";
+  if (activeEvents.some((event) => ["urgent", "today", "soon"].includes(getUrgency(event.due_at).level))) return "due-soon";
+  if (activeEvents.length > 0) return "active";
+  return "completed";
+}
 
 const kstDay = (iso: string) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date(iso));
 const eventCalendarTime = (event: { starts_at: string | null; due_at: string | null }) => event.starts_at ?? event.due_at;
@@ -32,6 +48,12 @@ const formatKstDateTime = (iso: string) => new Intl.DateTimeFormat("ko-KR", {
   timeStyle: "short",
   timeZone: "Asia/Seoul",
 }).format(new Date(iso));
+const formatKstDayLabel = (day: string) => new Intl.DateTimeFormat("ko-KR", {
+  month: "long",
+  day: "numeric",
+  weekday: "long",
+  timeZone: "Asia/Seoul",
+}).format(new Date(`${day}T12:00:00+09:00`));
 
 function monthGrid(ym: string) {
   const [y, mo] = ym.split("-").map(Number);
@@ -222,10 +244,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const { data } = await supabase.from("events").select("*").eq("is_hidden", false).order("is_completed").order("due_at", { nullsFirst: false });
   const events = data ?? [];
-  const visibleEvents = dateParam
+  const selectedCalendarDate = view === "calendar"
+    ? dateParam ?? (ym === todayStr.slice(0, 7) ? todayStr : null)
+    : null;
+  const eventFilterDate = view === "calendar" ? selectedCalendarDate : dateParam;
+  const visibleEvents = eventFilterDate
     ? events.filter((event) => {
         const calendarTime = eventCalendarTime(event);
-        return calendarTime !== null && kstDay(calendarTime) === dateParam;
+        return calendarTime !== null && kstDay(calendarTime) === eventFilterDate;
       })
     : events;
 
@@ -374,38 +400,78 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   const dayStr = `${ym}-${String(day).padStart(2, "0")}`;
                   const dayEvents = byDay[dayStr] ?? [];
                   const isToday = dayStr === todayStr;
-                  const isSelected = dayStr === dateParam;
-                  const href = dayEvents.length > 0
-                    ? `/dashboard?view=calendar&m=${ym}&date=${dayStr}`
-                    : `/dashboard?view=calendar&m=${ym}&add=direct&date=${dayStr}`;
-                  const hasUrgent = dayEvents.some((event) => ["overdue", "urgent", "today"].includes(getUrgency(event.due_at).level));
+                  const isSelected = dayStr === selectedCalendarDate;
+                  const href = `/dashboard?view=calendar&m=${ym}&date=${dayStr}`;
+                  const dayStatus = dayEvents.length > 0 ? getCalendarDayStatus(dayEvents) : null;
                   return (
                     <Link
                       key={dayStr}
                       href={href}
                       className={`calendar-day ${isToday ? "calendar-day--today" : ""} ${isSelected ? "calendar-day--selected" : ""}`}
                       aria-current={isSelected ? "page" : isToday ? "date" : undefined}
-                      aria-label={`${mo}월 ${day}일${isToday ? ", 오늘" : ""}${isSelected ? ", 선택됨" : ""}${dayEvents.length ? `, 일정 ${dayEvents.length}개${hasUrgent ? ", 마감 임박 일정 있음" : ""}` : ", 일정 추가"}`}
+                      aria-label={`${mo}월 ${day}일${isToday ? ", 오늘" : ""}${isSelected ? ", 선택됨" : ""}${dayEvents.length ? `, 일정 ${dayEvents.length}개, ${calendarDayStatusLabels[dayStatus!]}` : ", 일정 없음"}`}
                     >
-                      <span>{day}</span>
-                      {dayEvents.length > 0 && <span className={`calendar-day__dot ${hasUrgent ? "calendar-day__dot--urgent" : ""}`} aria-hidden="true" />}
-                      {dayEvents.length > 1 && <small>{dayEvents.length}</small>}
+                      <span className="calendar-day__number">{day}</span>
+                      {dayStatus && (
+                        <small className={`calendar-day__count calendar-day__count--${dayStatus}`} aria-hidden="true">
+                          {dayEvents.length > 9 ? "9+" : dayEvents.length}
+                        </small>
+                      )}
                     </Link>
                   );
                 })}
+              </div>
+              <div className="calendar-legend" aria-label="일정 상태 안내">
+                <span><i className="calendar-legend__dot calendar-legend__dot--overdue" aria-hidden="true" />마감 초과</span>
+                <span><i className="calendar-legend__dot calendar-legend__dot--due-soon" aria-hidden="true" />3일 이내</span>
               </div>
             </section>
           );
         })()}
 
-        {!addMode && dateParam && (
+        {!addMode && view === "calendar" && selectedCalendarDate && (
+          <div className="selected-date selected-date--calendar">
+            <div>
+              <strong>{formatKstDayLabel(selectedCalendarDate)}</strong>
+              <span>일정 {visibleEvents.length}개</span>
+            </div>
+            <Link href={`/dashboard?add=direct&date=${selectedCalendarDate}`} className="button button-muted calendar-add-button">
+              <PlusIcon />
+              <span>추가</span>
+            </Link>
+          </div>
+        )}
+
+        {!addMode && view === "list" && dateParam && (
           <div className="selected-date">
             <div><p className="eyebrow">선택한 날짜</p><strong>{Number(dateParam.slice(5, 7))}월 {Number(dateParam.slice(8, 10))}일 일정</strong></div>
             <Link href={`/dashboard?view=${view}`} className="button button-ghost">전체 보기</Link>
           </div>
         )}
 
-        {!addMode && <div className="schedule-sections">
+        {!addMode && view === "calendar" && (
+          <section className="calendar-selected-events" aria-label="선택한 날짜의 일정" aria-live="polite">
+            {!selectedCalendarDate ? (
+              <div className="calendar-date-prompt">
+                <strong>확인할 날짜를 선택하세요</strong>
+                <p>날짜를 누르면 그날의 일정만 모아볼 수 있어요.</p>
+              </div>
+            ) : visibleEvents.length === 0 ? (
+              <div className="calendar-day-empty">
+                <strong>이 날짜에는 일정이 없어요</strong>
+                <p>필요한 일정을 바로 추가할 수 있어요.</p>
+                <Link href={`/dashboard?add=direct&date=${selectedCalendarDate}`} className="button button-primary">
+                  <PlusIcon />
+                  일정 추가
+                </Link>
+              </div>
+            ) : (
+              <EventList events={visibleEvents} editId={editId} canvasSourceId={canvasSource?.id} />
+            )}
+          </section>
+        )}
+
+        {!addMode && view === "list" && <div className="schedule-sections">
           {visibleEvents.length === 0 && (
             <EmptyState
               title={dateParam ? "이 날짜에는 일정이 없어요" : "아직 일정이 없어요"}
@@ -427,7 +493,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </section>
           )}
 
-          {view === "list" && activeEvents.length > 0 && (
+          {activeEvents.length > 0 && (
             <Link href="/dashboard?view=calendar" className="week-summary-link">
               <span><strong>전체 일정 {activeEvents.length}개</strong><small>날짜별 일정은 캘린더에서 확인하세요</small></span>
               <ArrowRightIcon />
