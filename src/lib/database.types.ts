@@ -30,7 +30,7 @@ export type Database = {
           event_type: "assignment" | "exam" | "presentation" | "application" | "event" | "other";
           starts_at: string | null; due_at: string | null; is_all_day: boolean; location: string | null;
           original_text: string | null; source_url: string | null; confidence: number | null;
-          is_completed: boolean; completed_at: string | null; reminder_sent_at: string | null;
+          is_completed: boolean; completed_at: string | null; reminder_stage: number;
           is_hidden: boolean; override_fields: string[];
           created_at: string; updated_at: string;
         };
@@ -40,7 +40,7 @@ export type Database = {
           event_type?: "assignment" | "exam" | "presentation" | "application" | "event" | "other";
           starts_at?: string | null; due_at?: string | null; is_all_day?: boolean; location?: string | null;
           original_text?: string | null; source_url?: string | null; confidence?: number | null;
-          is_completed?: boolean; completed_at?: string | null; reminder_sent_at?: string | null;
+          is_completed?: boolean; completed_at?: string | null; reminder_stage?: number;
           is_hidden?: boolean; override_fields?: string[];
           created_at?: string; updated_at?: string;
         };
