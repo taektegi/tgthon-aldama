@@ -48,7 +48,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
           <section className="card settings-card settings-card--stack">
             <div>
-              <h2>러닝엑스 연동</h2>
+              <div className="settings-card__title-row">
+                <h2>LearningX 연동</h2>
+                <span className={`badge ${canvasSource?.status === "error" ? "badge--danger" : canvasSource?.last_sync_error ? "badge--warning" : canvasSource ? "badge--success" : "badge--neutral"}`}>
+                  {canvasSource?.status === "error" ? "연결 오류" : canvasSource?.last_sync_error ? "동기화 필요" : canvasSource ? "연결됨" : "미연결"}
+                </span>
+              </div>
               {canvasSource ? (
                 <p>
                   {canvasSource.status === "error"
@@ -65,7 +70,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                     : <form action={syncLearnXFromForm}><button className="button button-primary">지금 동기화</button></form>}
                   <form action={disconnectLearnX}><button className="button button-danger">연결 해제</button></form>
                 </>
-              ) : <Link href="/connect/learnx" className="button button-primary">러닝엑스 연결</Link>}
+              ) : <Link href="/connect/learnx" className="button button-primary">LearningX 연결</Link>}
             </div>
             {canvasSource && <p className="field-help">연결을 해제해도 이미 만든 일정은 남습니다. e-Campus 설정에서 토큰도 삭제할 수 있어요.</p>}
           </section>
@@ -76,7 +81,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </section>
         </div>
       </main>
-      <AppNav />
+      <AppNav variant="wallet" />
     </>
   );
 }

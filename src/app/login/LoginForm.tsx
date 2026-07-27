@@ -57,7 +57,7 @@ export function LoginForm({ next }: { next?: string }) {
             회원가입
           </SubmitButton>
         ) : (
-          <SubmitButton className="button button-accent button-block" formAction={signIn} pendingLabel="로그인 중...">
+          <SubmitButton className="button button-primary button-block" formAction={signIn} pendingLabel="로그인 중...">
             로그인
           </SubmitButton>
         )}

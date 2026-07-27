@@ -109,7 +109,7 @@ function buildHero(events: EventRow[]) {
 function buildSyncedLabel(lastSyncedAt: string | null): string | null {
   if (!lastSyncedAt) return null;
   const minutes = Math.max(0, Math.round((Date.now() - new Date(lastSyncedAt).getTime()) / 60000));
-  return `러닝엑스 · ${minutes}분 전 동기화`;
+  return `LearningX · ${minutes}분 전 동기화`;
 }
 
 const typeLabels: Record<string, string> = {
@@ -141,7 +141,7 @@ function EventEditor({ event, isCanvasEvent }: { event: EventRow; isCanvasEvent:
           <button className="button button-primary">저장</button>
           <Link href="/dashboard" className="button button-muted">취소</Link>
         </div>
-        {isCanvasEvent && <p className="field-help">여기서 바꾼 값은 다음 러닝엑스 동기화에서도 유지됩니다.</p>}
+        {isCanvasEvent && <p className="field-help">여기서 바꾼 값은 다음 LearningX 동기화에서도 유지됩니다.</p>}
       </form>
     </article>
   );
@@ -176,7 +176,7 @@ function EventCard({
         {event.subject && (
           <p className="event-card__subject">
             {event.subject}
-            {isCanvasEvent && <span className="source-tag">러닝엑스</span>}
+            {isCanvasEvent && <span className="source-tag">LearningX</span>}
             {hasOverrides && <span className="source-tag source-tag--warning">사용자 수정됨</span>}
           </p>
         )}
@@ -287,11 +287,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </header>
 
         {!addMode && <div className="dashboard-alerts">
-          {connected !== undefined && <StatusAlert tone="success">러닝엑스 연결 완료 · 일정 {connected}개를 가져왔어요.</StatusAlert>}
+          {connected !== undefined && <StatusAlert tone="success">LearningX 연결 완료 · 일정 {connected}개를 가져왔어요.</StatusAlert>}
           {syncError && syncError !== "TOKEN_INVALID" && <StatusAlert tone="warning">첫 동기화를 완료하지 못했어요. 잠시 후 다시 시도해주세요.</StatusAlert>}
-          {restored === "1" && <StatusAlert tone="success">러닝엑스 원본 값으로 되돌렸어요.</StatusAlert>}
+          {restored === "1" && <StatusAlert tone="success">LearningX 원본 값으로 되돌렸어요.</StatusAlert>}
           {restoreError === "1" && <StatusAlert tone="warning">원본 보호는 해제했지만 즉시 동기화하지 못했어요.</StatusAlert>}
-          {canvasSource?.status === "error" && <StatusAlert tone="danger">러닝엑스 연결이 끊겼어요. <Link href="/connect/learnx" className="text-link">다시 연결하기</Link></StatusAlert>}
+          {canvasSource?.status === "error" && <StatusAlert tone="danger">LearningX 연결이 끊겼어요. <Link href="/connect/learnx" className="text-link">다시 연결하기</Link></StatusAlert>}
           {canvasSource?.status === "active" && canvasSource.last_sync_error && <StatusAlert tone="warning">최근 동기화가 일시적으로 실패했어요. 기존 일정은 유지됩니다.</StatusAlert>}
         </div>}
 
@@ -305,8 +305,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <strong>{priorityEvents.length || activeEvents.length}</strong>
             <span>{priorityEvents.length ? "우선 일정" : "남은 일정"}</span>
           </div>
-          {!canvasSource && <Link href="/connect/learnx" className="button button-primary dashboard-hero__action">러닝엑스 연결</Link>}
         </section>}
+
+        {!addMode && !canvasSource && (
+          <div className="dashboard-connect-action">
+            <Link href="/connect/learnx" className="button button-muted dashboard-connect-action__button">LearningX 연결</Link>
+          </div>
+        )}
 
         {!addMode && canvasSource?.status === "active" && (
           <div className="sync-row">
@@ -483,11 +488,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           {priorityEvents.length > 0 && (
             <section aria-labelledby="priority-heading">
               <div className="section-heading section-heading--list section-heading--priority">
-                <div><p className="eyebrow">먼저 확인하세요</p><h2 id="priority-heading">마감 임박</h2></div>
-                <div className="priority-heading__meta">
-                  {priorityEvents.length > 1 && <span className="priority-scroll-hint">좌우로 넘기기</span>}
-                  <span className="count-badge">{priorityEvents.length}</span>
-                </div>
+                <h2 id="priority-heading">마감 임박</h2>
+                <span className="count-badge">{priorityEvents.length}</span>
               </div>
               <EventList events={priorityEvents} editId={editId} canvasSourceId={canvasSource?.id} variant="carousel" />
             </section>

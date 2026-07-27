@@ -61,7 +61,7 @@ export async function connectLearnX(formData: FormData) {
   } else {
     const { data: created, error } = await supabase
       .from("sources")
-      .insert({ user_id: userId, type: "canvas", name: `러닝엑스 (${displayName})`, credential_ciphertext: credential })
+      .insert({ user_id: userId, type: "canvas", name: `LearningX (${displayName})`, credential_ciphertext: credential })
       .select("id")
       .single();
     if (error || !created) redirect("/connect/learnx?error=save");

@@ -1,41 +1,71 @@
 ---
 version: "alpha"
-name: "Aldama Mint Pocket Planner"
-description: "A mobile-first planning system for university notices, assignments, exams, and events."
+name: "Aldama Quiet Wallet"
+description: "A calm, mobile-first schedule wallet for university notices, assignments, exams, and events."
 colors:
-  background: "#edf6f3"
-  surface: "#ffffff"
-  surface-soft: "#f6faf8"
-  foreground: "#1f2e2b"
-  foreground-soft: "#40534d"
-  primary: "#4f9e8f"
-  primary-deep: "#347568"
-  primary-pale: "#d8ece6"
-  primary-soft: "#eaf5f1"
+  background: "#eceff2"
+  surface: "#fefefe"
+  surface-soft: "#f4f6f8"
+  foreground: "#111318"
+  foreground-soft: "#46515e"
+  primary: "#395e7d"
+  primary-deep: "#294861"
+  primary-pale: "#dce6ee"
+  primary-soft: "#e7edf2"
   on-primary: "#ffffff"
-  accent: "#eb9c43"
-  on-accent: "#2f2417"
-  danger: "#c93434"
-  danger-pale: "#fff0f0"
-  warning: "#9a6400"
-  warning-pale: "#fff7e5"
-  success: "#18794e"
-  success-pale: "#e9f8f0"
-  muted: "#5f706a"
-  border: "#d3e5df"
-  border-strong: "#b9d3ca"
-  disabled-surface: "#e6efec"
-  disabled-text: "#7d8b87"
-  placeholder: "#87958f"
-  label-text: "#33463f"
-  danger-border: "#f3caca"
-  warning-border: "#f0ddb6"
-  success-border: "#c8ead7"
-  neutral-badge: "#eef2f0"
-  neutral-badge-text: "#58645f"
-  urgency-text: "#905500"
-  inactive-dot: "#c9d4d0"
+  accent: "#bd742e"
+  on-accent: "#2c1b0b"
+  danger: "#c64143"
+  danger-pale: "#fbeaec"
+  warning: "#9a5c25"
+  warning-pale: "#f8eee3"
+  success: "#2f755c"
+  success-pale: "#e7f2ed"
+  muted: "#65707d"
+  border: "#d5d9de"
+  border-strong: "#bcc3cb"
+  disabled-surface: "#e1e5e9"
+  disabled-text: "#7a838d"
+  placeholder: "#7d8791"
+  label-text: "#37414c"
+  danger-border: "#e7c5c7"
+  warning-border: "#e8d5bf"
+  success-border: "#c8ddd4"
+  neutral-badge: "#edf0f2"
+  neutral-badge-text: "#59636d"
+  urgency-text: "#88501f"
+  inactive-dot: "#c4cbd1"
 typography:
+  app-ui:
+    fontFamily: "-apple-system, BlinkMacSystemFont, SF Pro Display, SF Pro Text, Noto Sans KR, Apple SD Gothic Neo, Segoe UI, sans-serif"
+    fontSize: "15px"
+    fontWeight: 500
+    lineHeight: 1.5
+  heading-compact:
+    fontFamily: "-apple-system, BlinkMacSystemFont, SF Pro Display, SF Pro Text, Noto Sans KR, Apple SD Gothic Neo, Segoe UI, sans-serif"
+    fontSize: "19px"
+    fontWeight: 730
+    lineHeight: 1.3
+  title-compact:
+    fontFamily: "-apple-system, BlinkMacSystemFont, SF Pro Display, SF Pro Text, Noto Sans KR, Apple SD Gothic Neo, Segoe UI, sans-serif"
+    fontSize: "25px"
+    fontWeight: 750
+    lineHeight: 1.15
+  confirmation-title:
+    fontFamily: "-apple-system, BlinkMacSystemFont, SF Pro Display, SF Pro Text, Noto Sans KR, Apple SD Gothic Neo, Segoe UI, sans-serif"
+    fontSize: "27px"
+    fontWeight: 750
+    lineHeight: 1.15
+  display-lg:
+    fontFamily: "-apple-system, BlinkMacSystemFont, SF Pro Display, SF Pro Text, Noto Sans KR, Apple SD Gothic Neo, Segoe UI, sans-serif"
+    fontSize: "38px"
+    fontWeight: 760
+    lineHeight: 1.1
+  hero-compact:
+    fontFamily: "-apple-system, BlinkMacSystemFont, SF Pro Display, SF Pro Text, Noto Sans KR, Apple SD Gothic Neo, Segoe UI, sans-serif"
+    fontSize: "48px"
+    fontWeight: 770
+    lineHeight: 1.1
   display:
     fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, Noto Sans KR, Apple SD Gothic Neo, sans-serif"
     fontSize: "2.25rem"
@@ -119,10 +149,10 @@ typography:
     lineHeight: 1.15
 rounded:
   xs: "6px"
-  sm: "12px"
-  control: "14px"
-  md: "16px"
-  lg: "22px"
+  sm: "10px"
+  control: "12px"
+  md: "12px"
+  lg: "16px"
   pill: "999px"
 spacing:
   xs: "4px"
@@ -136,26 +166,26 @@ components:
   button-primary:
     backgroundColor: "{colors.primary-deep}"
     textColor: "{colors.on-primary}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.control}"
     height: "44px"
     padding: "0 18px"
   button-secondary:
     backgroundColor: "{colors.primary-soft}"
     textColor: "{colors.primary-deep}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.control}"
     height: "44px"
     padding: "0 18px"
   button-danger:
     backgroundColor: "{colors.danger-pale}"
     textColor: "{colors.danger}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.control}"
     height: "44px"
     padding: "0 18px"
   field:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.foreground}"
-    rounded: "{rounded.md}"
-    height: "44px"
+    rounded: "{rounded.control}"
+    height: "48px"
     padding: "10px 14px"
   card:
     backgroundColor: "{colors.surface}"
@@ -166,15 +196,15 @@ components:
 
 ## Overview
 
-알다마는 대학생이 흩어진 공지, 과제, 시험, 신청 및 행사 일정을 빠르게 모으고 마감 상태를 파악하는 모바일 중심 PWA다. 디자인 콘셉트는 **민트 포켓 플래너**다. 친근하지만 유아적으로 보이지 않고, 한 손으로 필요한 일정에 도달할 수 있어야 한다.
+알다마는 대학생이 흩어진 공지, 과제, 시험, 신청 및 행사 일정을 빠르게 모으고 마감 상태를 파악하는 모바일 중심 PWA다. 디자인 콘셉트는 **콰이어트 월렛**이다. 차분하고 정돈된 금융 앱처럼 중요한 일정과 상태가 먼저 보이며, 한 손으로 필요한 행동에 도달할 수 있어야 한다.
 
 화면의 주인공은 일정과 마감 상태다. 장식은 정보 이해를 방해하지 않아야 하며, 펭귄 마스코트는 빈 화면, 오류, 동기화, 마감 임박처럼 사용자의 다음 행동을 안내하는 상태 요소로 사용한다.
 
 ## Brand principles
 
-- 민트색은 안정감과 브랜드 인지를 담당하고, 주황색은 오늘 또는 임박한 일정에 제한적으로 사용한다.
+- 남색은 주요 행동과 선택 상태를 담당하고, 청회색은 표면과 보조 정보의 계층을 만든다. 주황색은 오늘 또는 임박한 일정에 제한적으로 사용한다.
 - 위험, 마감 초과, 실패 상태에는 빨간색을 사용하되 반드시 문구나 아이콘을 함께 제공한다.
-- 둥근 카드와 부드러운 그림자를 사용하되 카드 안에 불필요하게 카드를 중첩하지 않는다.
+- 12~16px의 절제된 모서리와 아래 방향의 부드러운 그림자를 사용하되 카드 안에 불필요하게 카드를 중첩하지 않는다.
 - 짧고 친근한 한국어 문구를 사용한다. 오류 원인과 사용자가 할 수 있는 다음 행동을 숨기지 않는다.
 - 펭귄 이미지는 장식적으로 반복하지 않는다. 한 화면에서 하나의 주요 상태 메시지에 우선 배치한다.
 
@@ -235,7 +265,7 @@ components:
 ### Badges and status
 
 - 배지는 색상과 짧은 텍스트를 함께 사용한다.
-- 일정 카드의 마감 상태 배지는 34px 높이와 15px 굵은 글자를 사용해 제목보다 먼저 인식되게 한다. 마감 초과·긴급은 채운 위험색, 오늘·임박은 채운 강조색, 여유 있는 D-day는 옅은 민트색으로 강약을 구분한다.
+- 일정 카드의 마감 상태 배지는 34px 높이와 15px 굵은 글자를 사용해 제목보다 먼저 인식되게 한다. 마감 초과·긴급은 채운 위험색, 오늘·임박은 채운 강조색, 여유 있는 D-day는 옅은 청회색으로 강약을 구분한다.
 - `마감 초과`, `마감 임박`, `오늘`, `완료`, `러닝엑스` 상태는 서로 구분되는 문구를 유지한다.
 - 성공, 경고, 실패 메시지는 `role="status"` 또는 `role="alert"`를 상황에 맞게 사용한다.
 

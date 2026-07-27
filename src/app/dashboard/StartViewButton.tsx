@@ -3,10 +3,11 @@
 // "기본화면" 토글 스위치: 앱을 열 때 어떤 화면으로 시작할지 정한다.
 // 흰 손잡이가 선택된 쪽으로 미끄러지는 ON/OFF 스위치 느낌.
 import { useState } from "react";
+import { CalendarIcon, ListIcon } from "@/app/components/UiIcons";
 
 const OPTIONS = [
-  { value: "calendar", label: "📅 캘린더" },
-  { value: "list", label: "📋 할 일" },
+  { value: "calendar", label: "캘린더", icon: CalendarIcon },
+  { value: "list", label: "일정", icon: ListIcon },
 ] as const;
 
 function saveStartView(value: "calendar" | "list") {
@@ -41,6 +42,7 @@ export function StartViewToggle({ initial }: { initial: "calendar" | "list" }) {
             onClick={() => choose(option.value)}
             aria-pressed={selected === option.value}
           >
+            <option.icon />
             {option.label}
           </button>
         ))}

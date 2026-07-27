@@ -35,7 +35,10 @@ export default async function SharePage({ searchParams }: { searchParams: Promis
           <div>
             <p className="page-header__eyebrow">공지 분석 결과</p>
             <h1>저장할 일정을 확인하세요</h1>
-            <p className="page-description">{engine === "ai" ? "AI가 찾은 내용입니다." : "기본 분석으로 찾은 내용입니다."} 잘못된 부분은 저장 전에 수정할 수 있어요.</p>
+            <div className="share-page__analysis-meta">
+              <span className={`badge ${engine === "ai" ? "badge--mint" : "badge--neutral"}`}>{engine === "ai" ? "AI 분석" : "기본 분석"}</span>
+              <p className="page-description">잘못된 부분은 저장 전에 수정할 수 있어요.</p>
+            </div>
           </div>
         </header>
 
@@ -72,7 +75,7 @@ export default async function SharePage({ searchParams }: { searchParams: Promis
           </form>
         )}
       </main>
-      <AppNav active="add" />
+      <AppNav active="add" variant="wallet" />
     </>
   );
 }
