@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUrgency } from "@/lib/urgency";
 import { toKstInputValue } from "@/lib/datetime";
 import { analyzeNoticeImage, createEvent, deleteEvent, restoreLearnXOriginal, updateEvent } from "./actions";
+import { AppBadge } from "./AppBadge";
 import { ClipboardAnalyzeButton } from "./ClipboardAnalyzeButton";
 import { CompleteButton } from "./CompleteButton";
 import { NotificationSetup } from "./NotificationSetup";
@@ -92,8 +93,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const { heroImg, heroMessage } = buildHero(events);
 
+  // 앱 아이콘 배지: 24시간 내 마감(미완료, 아직 안 지난) 개수
+  const badgeNow = Date.now();
+  const badgeCount = events.filter((event) => {
+    if (event.is_completed || !event.due_at) return false;
+    const diff = new Date(event.due_at).getTime() - badgeNow;
+    return diff > 0 && diff <= 24 * 60 * 60 * 1000;
+  }).length;
+
   return (
     <main className="shell" style={{ padding: "38px 0 80px" }}>
+      <AppBadge count={badgeCount} />
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
         <div><p style={{ color: "var(--primary-deep)", fontWeight: 800, margin: 0 }}>ALDAMA</p><h1 style={{ margin: "5px 0 0" }}>내 일정 카드</h1></div>
         <Link href="/settings" className="button button-muted">⚙️ 설정</Link>

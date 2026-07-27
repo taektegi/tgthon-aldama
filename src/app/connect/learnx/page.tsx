@@ -71,7 +71,7 @@ export default async function ConnectLearnXPage({
             <SubmitButton
               type="submit"
               className="button button-accent"
-              pendingLabel="연결하는 중... 최대 1분 정도 걸릴 수 있어요 🐧"
+              pendingLabel="연결하는 중... 최대 1분 정도 걸릴 수 있어요"
             >
               연결하기
             </SubmitButton>
