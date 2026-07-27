@@ -30,35 +30,32 @@ export function OnboardingCarousel() {
   const isLast = index === slides.length - 1;
 
   return (
-    <div className="card" style={{ padding: 36, display: "grid", gap: 14, justifyItems: "center" }}>
+    <div className="card onboarding-card">
       <Image
         src={slide.img}
         alt=""
         width={140}
         height={140}
-        style={{ height: 120, width: "auto" }}
+        className="onboarding-card__image"
         aria-hidden
+        priority={index === 0}
       />
-      <h2 style={{ margin: 0 }}>{slide.title}</h2>
-      <p className="muted" style={{ margin: 0, lineHeight: 1.7, maxWidth: 420 }}>{slide.description}</p>
+      <div aria-live="polite" className="onboarding-card__copy">
+        <h2>{slide.title}</h2>
+        <p>{slide.description}</p>
+      </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+      <div className="carousel-dots" aria-label="사용 안내 단계">
         {slides.map((_, i) => (
           <button
             key={i}
             type="button"
             onClick={() => setIndex(i)}
             aria-label={`${i + 1}번째 설명 보기`}
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              background: i === index ? "var(--primary-deep)" : "#d9dbea",
-            }}
-          />
+            aria-current={i === index ? "step" : undefined}
+          >
+            <span aria-hidden="true" />
+          </button>
         ))}
       </div>
 
@@ -67,12 +64,11 @@ export function OnboardingCarousel() {
           type="button"
           className="button button-muted"
           onClick={() => setIndex(index + 1)}
-          style={{ marginTop: 4 }}
         >
-          다음 ↓
+          다음 설명
         </button>
       ) : (
-        <p style={{ color: "var(--primary-deep)", fontWeight: 700, margin: "4px 0 0", fontSize: 14 }}>
+        <p className="onboarding-card__ready">
           준비됐어요! 아래에서 시작하세요 👇
         </p>
       )}

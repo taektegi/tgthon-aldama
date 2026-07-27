@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StatusAlert } from "@/app/components/States";
 import { canvasSettingsUrl } from "@/lib/canvas/config";
 import { SubmitButton } from "@/app/login/SubmitButton";
 import { connectLearnX } from "./actions";
@@ -12,87 +13,45 @@ const ERROR_MESSAGES: Record<string, string> = {
   config: "러닝엑스 서버 설정이 완료되지 않았어요. 관리자에게 문의해주세요.",
 };
 
-export default async function ConnectLearnXPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
+export default async function ConnectLearnXPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const { error } = await searchParams;
-  const settingsUrl = canvasSettingsUrl(
-    process.env.NEXT_PUBLIC_CANVAS_BASE_URL,
-    process.env.CANVAS_BASE_URL,
-  );
+  const settingsUrl = canvasSettingsUrl(process.env.NEXT_PUBLIC_CANVAS_BASE_URL, process.env.CANVAS_BASE_URL);
   const serverConfigured = Boolean(process.env.CANVAS_BASE_URL && process.env.TOKEN_ENCRYPTION_KEY);
 
   return (
-    <main className="shell" style={{ padding: "38px 0 80px", maxWidth: 520 }}>
-      <h1 style={{ margin: 0 }}>러닝엑스 연결</h1>
-      <p className="muted" style={{ margin: "8px 0 24px", fontSize: 14 }}>
-        한 번만 연결하면 러닝엑스 과제가 자동으로 카드에 들어와요. 제출하면 자동 완료!
-      </p>
+    <main className="page-shell page-shell--narrow connect-page">
+      <header className="page-header">
+        <div><p className="page-header__eyebrow">일정 자동 불러오기</p><h1>러닝엑스 연결</h1><p className="page-description">한 번 연결하면 과제가 자동으로 들어오고, 제출한 과제는 완료 상태로 바뀝니다.</p></div>
+      </header>
 
-      <section className="card" style={{ padding: 18, display: "grid", gap: 18 }}>
-        <div>
-          <p style={{ margin: "0 0 8px", fontWeight: 700 }}>1. e-Campus 설정 열기</p>
-          {settingsUrl ? (
-            <a href={settingsUrl} target="_blank" rel="noreferrer" className="button button-primary" style={{ width: "100%" }}>
-              e-Campus 설정 페이지 열기
-            </a>
-          ) : (
-            <p style={{ margin: 0, color: "#c0392b", fontSize: 13 }}>
-              e-Campus 주소가 설정되지 않았어요. 관리자에게 문의해주세요.
-            </p>
-          )}
-        </div>
+      {error && <StatusAlert tone="danger">{ERROR_MESSAGES[error] ?? "문제가 생겼어요."}</StatusAlert>}
 
-        <div>
-          <p style={{ margin: "0 0 4px", fontWeight: 700 }}>2. 토큰 만들기</p>
-          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-            아래로 스크롤 → <b>+ 새 액세스 토큰</b> 클릭 → 목적에 &ldquo;알다마&rdquo; 입력, 만료일은 비워두고 생성
-          </p>
-        </div>
+      <ol className="connect-steps">
+        <li className="card connect-step">
+          <span className="connect-step__number">1</span>
+          <div><h2>e-Campus 설정 열기</h2><p>새 액세스 토큰을 만들 수 있는 설정 페이지로 이동합니다.</p></div>
+          {settingsUrl
+            ? <a href={settingsUrl} target="_blank" rel="noreferrer" className="button button-primary button-block">e-Campus 설정 열기</a>
+            : <StatusAlert tone="danger">e-Campus 주소가 설정되지 않았어요. 관리자에게 문의해주세요.</StatusAlert>}
+        </li>
+        <li className="card connect-step">
+          <span className="connect-step__number">2</span>
+          <div><h2>토큰 만들기</h2><p><b>+ 새 액세스 토큰</b>을 누르고 목적에 “알다마”를 입력하세요. 만료일은 비워두면 됩니다.</p></div>
+        </li>
+        <li className="card connect-step">
+          <span className="connect-step__number">3</span>
+          <form action={connectLearnX} className="form-stack">
+            <label className="label">토큰 붙여넣기<span className="field-help">토큰은 생성 직후 한 번만 표시됩니다.</span><input className="field" name="token" type="password" required autoComplete="off" placeholder="토큰을 여기에 붙여넣기" /></label>
+            {serverConfigured
+              ? <SubmitButton type="submit" className="button button-accent button-block" pendingLabel="연결하는 중... 최대 1분 정도 걸릴 수 있어요">연결하기</SubmitButton>
+              : <button type="submit" className="button button-accent button-block" disabled>연결하기</button>}
+            {!serverConfigured && <StatusAlert tone="danger">서버 환경 설정이 완료되지 않아 지금은 연결할 수 없어요.</StatusAlert>}
+          </form>
+        </li>
+      </ol>
 
-        <form action={connectLearnX} style={{ display: "grid", gap: 10 }}>
-          <label className="label">
-            3. 토큰 붙여넣기 <span className="muted" style={{ fontWeight: 400 }}>(토큰은 지금 딱 한 번만 보여요)</span>
-            <input
-              className="field"
-              name="token"
-              type="password"
-              required
-              autoComplete="off"
-              placeholder="토큰을 여기에 붙여넣기"
-            />
-          </label>
-          {error && (
-            <p style={{ margin: 0, fontSize: 13, color: "#c0392b" }}>{ERROR_MESSAGES[error] ?? "문제가 생겼어요."}</p>
-          )}
-          {serverConfigured ? (
-            <SubmitButton
-              type="submit"
-              className="button button-accent"
-              pendingLabel="연결하는 중... 최대 1분 정도 걸릴 수 있어요"
-            >
-              연결하기
-            </SubmitButton>
-          ) : (
-            <button type="submit" className="button button-accent" disabled>연결하기</button>
-          )}
-          {!serverConfigured && (
-            <p style={{ margin: 0, color: "#c0392b", fontSize: 13 }}>
-              서버의 러닝엑스 환경변수가 설정되지 않아 지금은 연결할 수 없어요.
-            </p>
-          )}
-        </form>
-
-        <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-          토큰은 암호화되어 저장되고, 과제를 읽어오는 데만 사용해요. e-Campus 설정에서 언제든 삭제할 수 있어요.
-        </p>
-      </section>
-
-      <p style={{ textAlign: "center", marginTop: 18 }}>
-        <Link href="/dashboard" className="muted" style={{ fontSize: 14 }}>나중에 할래요</Link>
-      </p>
+      <section className="privacy-note"><strong>토큰은 안전하게 보관됩니다</strong><p>암호화해 저장하고 과제를 읽어오는 데만 사용합니다. e-Campus 설정에서 언제든 삭제할 수 있어요.</p></section>
+      <Link href="/dashboard" className="button button-ghost button-block">나중에 하기</Link>
     </main>
   );
 }

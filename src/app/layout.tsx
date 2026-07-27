@@ -15,10 +15,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "var(--primary-deep)",
-  // 앱처럼 화면 고정: 확대/축소 비활성화
-  maximumScale: 1,
-  userScalable: false,
+  themeColor: "#347568",
+  colorScheme: "light",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
