@@ -43,7 +43,7 @@ function buildHero(events: Array<{ is_completed: boolean; due_at: string | null 
   ).length - overdueCount;
 
   if (overdueCount > 0) {
-    return { heroImg: "/mascot/overdue.png", heroMessage: `앗… 마감이 지난 일정이 ${overdueCount}개 있어요. 확인해주세요!` };
+    return { heroImg: "/mascot/overdue-run-v2.png", heroMessage: `앗… 마감이 지난 일정이 ${overdueCount}개 있어요. 확인해주세요!` };
   }
   if (urgentCount > 0) {
     return { heroImg: "/mascot/urgent-run.png", heroMessage: `서둘러요! 24시간 안에 마감 ${urgentCount}개가 있어요.` };
@@ -286,7 +286,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             ? { level: "none" as const, label: "완료", background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }
             : getUrgency(event.due_at);
           const mascotByLevel: Record<string, string> = {
-            overdue: "/mascot/urgent-run.png",
+            overdue: "/mascot/overdue-sign-v2.png",
             urgent: "/mascot/alarm.png",
             today: "/mascot/alarm.png",
             soon: "/mascot/face.png",
@@ -295,7 +295,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             none: "/mascot/face.png",
           };
           const mascotSrc = event.is_completed ? "/mascot/happy.png" : mascotByLevel[urgency.level];
-          const bigLabel = urgency.level === "overdue" ? "마감 경과! 긴급!" : urgency.label;
+          const bigLabel = urgency.level === "overdue" ? "마감기한 끝. 놓쳤어요!!" : urgency.label;
           const isCanvasEvent = Boolean(
             canvasSource
             && event.source_id === canvasSource.id
