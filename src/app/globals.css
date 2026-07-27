@@ -333,6 +333,8 @@ textarea.field { resize: vertical; min-height: 116px; }
 .app-nav__item:active { transform: scale(.96); }
 .app-nav__item[aria-current="page"] { color: var(--primary-deep); background: transparent; }
 .app-nav__icon { font-size: 22px; line-height: 1; font-weight: 800; }
+.app-nav__item--add { position: relative; touch-action: manipulation; }
+.app-nav__item--add::before { position: absolute; z-index: 2; top: -22px; left: 50%; width: 56px; height: 56px; transform: translateX(-50%); border-radius: 50%; content: ""; }
 .app-nav__item--add .app-nav__icon { width: 48px; height: 48px; margin-top: -22px; display: grid; place-items: center; border-radius: 50%; background: var(--dw-primary); color: white; box-shadow: 0 8px 18px rgb(41 72 97 / 27%); font-size: 30px; }
 .app-nav__item--add[aria-current="page"] { background: transparent; }
 
@@ -1629,7 +1631,7 @@ body:has(.dashboard-page) {
 
 .app-nav--wallet {
   width: min(500px, 100%);
-  padding: 8px 10px max(8px, env(safe-area-inset-bottom));
+  padding: 30px 10px max(8px, env(safe-area-inset-bottom));
 }
 
 .app-nav--wallet .app-nav__inner {
