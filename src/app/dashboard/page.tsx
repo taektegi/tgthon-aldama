@@ -347,7 +347,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           return (
             <article
               key={event.id}
-              className="card"
+              className="card event-card"
               style={{ padding: 14, display: "grid", gridTemplateColumns: "96px 1fr auto", alignItems: "stretch", gap: 16, opacity: event.is_completed ? 0.55 : 1 }}
             >
               <div
@@ -369,7 +369,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 />
               </div>
               <div style={{ display: "grid", alignContent: "center", gap: 4 }}>
-                <p style={{ margin: 0, fontSize: 22, lineHeight: 1.1, color: urgency.color, fontWeight: urgency.fontWeight >= 800 ? 900 : 800 }}>
+                <p className="event-biglabel" style={{ margin: 0, fontSize: 22, lineHeight: 1.1, color: urgency.color, fontWeight: urgency.fontWeight >= 800 ? 900 : 800 }}>
                   {bigLabel}
                 </p>
                 {event.subject && (
@@ -389,7 +389,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   {event.due_at ? `마감 ${formatKstDateTime(event.due_at)}` : "마감 없음"}
                 </p>
               </div>
-              <div style={{ display: "grid", alignContent: "center", justifyItems: "end", gap: 8 }}>
+              <div className="event-actions" style={{ display: "grid", alignContent: "center", justifyItems: "end", gap: 8 }}>
                 <span
                   style={{
                     background: urgency.background,
