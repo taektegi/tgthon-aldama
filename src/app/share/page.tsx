@@ -62,7 +62,8 @@ export default async function SharePage({ searchParams }: { searchParams: Promis
                 <div className="candidate-card__fields">
                   <label className="label">제목<input className="field" name={`title_${index}`} defaultValue={candidate.title} required /></label>
                   <label className="label">유형<select className="field" name={`event_type_${index}`} defaultValue={candidate.eventType}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-                  <label className="label">마감<span className="field-help">{candidate.dueAt ? "분석된 날짜를 확인해주세요." : "날짜를 찾지 못했어요. 직접 정하거나 비워둘 수 있어요."}</span><input className="field" name={`due_at_${index}`} type="datetime-local" defaultValue={candidate.dueAt ? toKstInputValue(candidate.dueAt) : ""} /></label>
+                  <label className="label">시작<span className="field-help">{candidate.startsAt ? "분석된 시각을 확인해주세요." : "행사·회의처럼 열리는 일이면 시작만 채워도 돼요."}</span><input className="field" name={`starts_at_${index}`} type="datetime-local" defaultValue={candidate.startsAt ? toKstInputValue(candidate.startsAt) : ""} /></label>
+                  <label className="label">마감<span className="field-help">{candidate.dueAt ? "분석된 날짜를 확인해주세요." : "과제·신청처럼 마감이 있는 일이면 마감만 채워도 돼요."}</span><input className="field" name={`due_at_${index}`} type="datetime-local" defaultValue={candidate.dueAt ? toKstInputValue(candidate.dueAt) : ""} /></label>
                 </div>
                 <details className="source-details"><summary>분석한 원문 보기</summary><p>“{candidate.snippet}”</p></details>
               </section>

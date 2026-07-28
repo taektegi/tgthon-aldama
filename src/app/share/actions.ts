@@ -9,6 +9,7 @@ import { parseKstLocal } from "@/lib/datetime";
 const rowSchema = z.object({
   title: z.string().trim().min(1).max(200),
   event_type: z.enum(["assignment", "exam", "presentation", "application", "event", "other"]),
+  starts_at: z.string().optional().transform((value) => (value && value.length > 0 ? value : null)),
   due_at: z.string().optional().transform((value) => (value && value.length > 0 ? value : null)),
   original_text: z.string().max(2000).optional(),
   confidence: z.coerce.number().min(0).max(1).optional(),
@@ -33,6 +34,7 @@ export async function saveSharedCandidates(formData: FormData) {
     const parsed = rowSchema.safeParse({
       title: formData.get(`title_${index}`),
       event_type: formData.get(`event_type_${index}`),
+      starts_at: formData.get(`starts_at_${index}`),
       due_at: formData.get(`due_at_${index}`),
       original_text: formData.get(`snippet_${index}`) ?? undefined,
       confidence: formData.get(`confidence_${index}`) ?? undefined,
@@ -49,6 +51,7 @@ export async function saveSharedCandidates(formData: FormData) {
       subject,
       title: row.title,
       event_type: row.event_type,
+      starts_at: row.starts_at ? parseKstLocal(row.starts_at).toISOString() : null,
       due_at: row.due_at ? parseKstLocal(row.due_at).toISOString() : null,
       original_text: row.original_text ?? null,
       confidence: row.confidence ?? null,

@@ -5,6 +5,7 @@ export type EventType = Database["public"]["Tables"]["events"]["Row"]["event_typ
 export interface NoticeCandidate {
   title: string;
   eventType: EventType;
+  startsAt: string | null;
   dueAt: string | null;
   confidence: number;
   snippet: string;
@@ -125,6 +126,7 @@ export function parseNoticeText(rawText: string, now: Date = new Date()): Notice
     candidates.push({
       title: buildTitle(segment, eventType),
       eventType,
+      startsAt: null, // 기본(regex) 분석은 시작 시각까지는 구분하지 못한다
       dueAt: dueAt.toISOString(),
       confidence,
       snippet: segment,
