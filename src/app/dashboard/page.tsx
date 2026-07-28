@@ -17,7 +17,7 @@ import LearnXSync from "./LearnXSync";
 
 /**
  * THESIS: /dashboard is a quiet wallet for deadlines, not a decorative planner.
- * OWN-WORLD: cool gray canvas, crisp white passes, ink/navy controls, and restrained status color.
+ * OWN-WORLD: warm gray canvas, crisp white passes, charcoal controls, and bookmark status color.
  * STORY: scan urgent work first, act on one card, then continue through the remaining schedule.
  * FIRST VIEWPORT: compact title, dark status pass, horizontally scrollable priority cards, persistent bottom nav.
  * FORM: Quiet Wallet; native mobile scrolling and existing URLs/actions remain authoritative.
@@ -121,6 +121,27 @@ const typeLabels: Record<string, string> = {
   other: "기타",
 };
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+function getEventStatusLabel(event: EventRow, urgencyLevel: ReturnType<typeof getUrgency>["level"]) {
+  if (event.is_completed) return "완료";
+  if (urgencyLevel === "overdue") return "마감 지남";
+  if (["urgent", "today"].includes(urgencyLevel)) return "24시간 이내";
+  if (urgencyLevel === "soon") return "마감 임박";
+  if (urgencyLevel === "none") return "마감 없음";
+  return "일반";
+}
+
+function getDeadlineBookmarkLabel(event: EventRow) {
+  if (event.is_completed) return "완료";
+  if (!event.due_at) return "—";
+
+  const remaining = new Date(event.due_at).getTime() - Date.now();
+  if (remaining < 0) return `D+${Math.max(1, Math.ceil(Math.abs(remaining) / DAY_IN_MS))}`;
+  if (remaining <= DAY_IN_MS) return "D-1";
+  return `D-${Math.ceil(remaining / DAY_IN_MS)}`;
+}
+
 function EventEditor({ event, isCanvasEvent }: { event: EventRow; isCanvasEvent: boolean }) {
   return (
     <article className="event-card event-card--editing" role="listitem">
@@ -161,18 +182,19 @@ function EventCard({
     : getUrgency(event.due_at);
   const isCanvasEvent = Boolean(canvasSourceId && event.source_id === canvasSourceId && event.external_uid?.startsWith("canvas:"));
   const hasOverrides = isCanvasEvent && (event.override_fields?.length ?? 0) > 0;
+  const statusLabel = getEventStatusLabel(event, urgency.level);
+  const bookmarkLabel = getDeadlineBookmarkLabel(event);
 
   if (editId === event.id) return <EventEditor event={event} isCanvasEvent={isCanvasEvent} />;
 
   return (
     <article className={`event-card event-card--${urgency.level} ${event.is_completed ? "event-card--completed" : ""}`} role="listitem">
-      <div className="event-card__rail" aria-hidden="true" />
+      <span className="event-card__bookmark" aria-label={`마감 표시 ${bookmarkLabel}`}>
+        {bookmarkLabel}
+      </span>
       <div className="event-card__body">
-        <div className="event-card__topline">
-          <span className={`badge urgency-badge badge--${urgency.level}`}>{urgency.label}</span>
-          <span className="badge badge--neutral">{typeLabels[event.event_type]}</span>
-        </div>
         <h3>{event.title}</h3>
+        <span className={`event-card__status event-card__status--${urgency.level}`}>{statusLabel}</span>
         {event.subject && (
           <p className="event-card__subject">
             {event.subject}
@@ -263,7 +285,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const { heroMessage, heroDescription, badgeCount } = buildHero(events);
   const activeEvents = visibleEvents.filter((event) => !event.is_completed);
-  const priorityEvents = activeEvents.filter((event) => ["overdue", "urgent", "today"].includes(getUrgency(event.due_at).level));
+  const priorityEvents = activeEvents.filter((event) => ["overdue", "urgent", "today", "soon"].includes(getUrgency(event.due_at).level));
   const upcomingEvents = activeEvents.filter((event) => !priorityEvents.includes(event));
   const completedEvents = visibleEvents.filter((event) => event.is_completed);
 
