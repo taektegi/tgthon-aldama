@@ -44,6 +44,10 @@ export function CheckIcon(props: IconProps) {
   return <IconBase {...props}><path d="m5 12 4 4L19 6" /></IconBase>;
 }
 
+export function CircleCheckIcon(props: IconProps) {
+  return <IconBase {...props}><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.5 2.5 4.5-5" /></IconBase>;
+}
+
 export function UndoIcon(props: IconProps) {
   return <IconBase {...props}><path d="m9 7-4 4 4 4" /><path d="M5 11h8a6 6 0 0 1 6 6" /></IconBase>;
 }

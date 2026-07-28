@@ -163,6 +163,8 @@ img { max-width: 100%; }
 }
 
 .page-header h1 { margin: 5px 0 0; font-size: clamp(30px, 6vw, 38px); font-weight: 760; letter-spacing: -.035em; line-height: 1.1; }
+/* 갈피 워드마크: 본문 제목보다 얇고 자간을 넓게 */
+.page-header h1.page-title--wordmark { font-weight: 480; letter-spacing: .14em; }
 .page-title { margin: 0; font-size: clamp(30px, 6vw, 38px); font-weight: 760; letter-spacing: -.035em; line-height: 1.1; }
 .page-description { max-width: 58ch; margin: 10px 0 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
 
@@ -453,6 +455,23 @@ textarea.field { resize: vertical; min-height: 116px; }
 .completed-section { margin-top: var(--space-5); }
 .completed-section > summary { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; border-radius: var(--radius-md); cursor: pointer; font-size: 18px; font-weight: 800; }
 .completed-section[open] > summary { margin-bottom: var(--space-3); }
+
+/* 놓친 일정(마감 지남) 패널 — 히어로의 펼쳐보기로 열림 */
+.overdue-panel { margin: 2px 0 10px; }
+.overdue-panel .section-heading--list { margin-top: 6px; }
+.overdue-complete-all { min-height: 36px; padding: 0 14px; font-size: 13px; }
+.dashboard-hero__expand { min-height: 40px; display: inline-flex; align-items: center; padding: 0 16px; border: 1px solid rgb(255 255 255 / 32%); border-radius: 999px; color: #fff; font-size: 13px; font-weight: 750; white-space: nowrap; }
+.dashboard-hero__expand:active { transform: scale(.97); }
+
+/* 다가오는 일정 기간 필터 칩 */
+.range-filter { display: flex; gap: 4px; }
+.range-filter__chip { min-height: 30px; padding: 0 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer; }
+.range-filter__chip[aria-pressed="true"] { border-color: var(--primary-deep); background: var(--primary-deep); color: #fff; }
+.upcoming-empty { margin: 4px 2px 0; color: var(--muted); font-size: 14px; }
+
+/* 직접 입력 화면: 저장 직후 흰 카드 위에 뜨는 확인 문구. 4초 뒤 서서히 사라짐 */
+.save-confirm { margin: 4px 2px 16px; color: #6b6e73; font-size: 16px; font-weight: 400; text-align: center; opacity: 1; transition: opacity 400ms ease; }
+.save-confirm--fade { opacity: 0; }
 
 .landing-shell { max-width: 680px; padding-block: max(52px, env(safe-area-inset-top)) max(72px, env(safe-area-inset-bottom)); }
 .landing-hero { text-align: left; }
@@ -810,6 +829,22 @@ body:has(.dashboard-page) {
   background: var(--dw-hero);
   color: #fff;
   box-shadow: 0 16px 34px rgb(28 29 31 / 16%);
+}
+
+/* 칭찬 배너: 놓친 일정이 없을 때. 배경(#f3f3f4)과 경고 배너(#303133) 사이 밝은 톤 */
+.dashboard-page .dashboard-hero.dashboard-hero--calm {
+  background: #c9cacc;
+  color: #2b2c2e;
+  box-shadow: 0 16px 34px rgb(145 146 148 / 20%);
+}
+
+.dashboard-page .dashboard-hero.dashboard-hero--calm .dashboard-hero__copy p {
+  color: #55575a;
+}
+
+.dashboard-page .dashboard-hero.dashboard-hero--calm .dashboard-hero__icon {
+  background: transparent;
+  color: #3d3f42;
 }
 
 .dashboard-page .dashboard-connect-action__button {
@@ -1207,49 +1242,6 @@ body:has(.dashboard-page) {
 
 .dashboard-page .event-list--carousel:focus-visible {
   border-radius: 16px;
-}
-
-.dashboard-page .week-summary-link {
-  display: flex;
-  min-height: 68px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-top: 8px;
-  padding: 12px 15px;
-  border-radius: 13px;
-  background: var(--dw-surface-muted);
-  color: #3a3c40;
-  transition: transform 120ms ease, background-color 140ms ease;
-}
-
-.dashboard-page .week-summary-link:hover {
-  background: #dedee0;
-}
-
-.dashboard-page .week-summary-link:active {
-  transform: scale(.99);
-}
-
-.dashboard-page .week-summary-link span {
-  display: grid;
-  gap: 2px;
-}
-
-.dashboard-page .week-summary-link strong {
-  font-size: 13px;
-  font-weight: 730;
-}
-
-.dashboard-page .week-summary-link small {
-  color: #66727e;
-  font-size: 11px;
-}
-
-.dashboard-page .week-summary-link svg {
-  width: 18px;
-  height: 18px;
-  flex: none;
 }
 
 .dashboard-page .completed-section {

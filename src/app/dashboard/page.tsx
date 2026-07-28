@@ -3,16 +3,19 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/app/components/AppNav";
 import { EmptyState, StatusAlert } from "@/app/components/States";
-import { AlertIcon, ArrowLeftIcon, ArrowRightIcon, MoreIcon, PlusIcon, SettingsIcon } from "@/app/components/UiIcons";
+import { AlertIcon, ArrowLeftIcon, CircleCheckIcon, MoreIcon, PlusIcon, SettingsIcon } from "@/app/components/UiIcons";
 import type { Database } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { getUrgency } from "@/lib/urgency";
+import { normalizeRange, splitSchedule } from "@/lib/schedule-sections";
 import { toKstInputValue } from "@/lib/datetime";
-import { analyzeNoticeImage, createEvent, deleteEvent, restoreLearnXOriginal, updateEvent } from "./actions";
+import { analyzeNoticeImage, completeAllOverdue, createEvent, deleteEvent, restoreLearnXOriginal, updateEvent } from "./actions";
 import { AppBadge } from "./AppBadge";
 import { ClipboardAnalyzeButton } from "./ClipboardAnalyzeButton";
 import { CompleteButton } from "./CompleteButton";
 import { NotificationSetup } from "./NotificationSetup";
+import { SaveConfirm } from "./SaveConfirm";
+import { UpcomingRangeFilter } from "./UpcomingRangeFilter";
 import LearnXSync from "./LearnXSync";
 
 /**
@@ -81,7 +84,7 @@ function buildHero(events: EventRow[]) {
   if (overdueCount > 0) {
     return {
       heroMessage: `마감이 지난 일정이 ${overdueCount}개 있어요`,
-      heroDescription: "가장 급한 일정부터 확인해볼까요?",
+      heroDescription: "지금이라도 확인해볼까요?",
       badgeCount: urgentCount,
     };
   }
@@ -253,11 +256,12 @@ function EventList({
   );
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ edit?: string; add?: string; error?: string; view?: string; date?: string; m?: string; connected?: string; syncError?: string; restored?: string; restoreError?: string }> }) {
-  const { edit: editId, add: addMode, error: errorMsg, view: viewParam, date: dateParam, m: mParam, connected, syncError, restored, restoreError } = await searchParams;
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ edit?: string; add?: string; error?: string; view?: string; date?: string; m?: string; range?: string; overdue?: string; saved?: string; connected?: string; syncError?: string; restored?: string; restoreError?: string }> }) {
+  const { edit: editId, add: addMode, error: errorMsg, view: viewParam, date: dateParam, m: mParam, range: rangeParam, overdue: overdueParam, saved, connected, syncError, restored, restoreError } = await searchParams;
   const cookieStore = await cookies();
   const savedView = cookieStore.get("aldama_view")?.value;
   const view = viewParam === "calendar" || viewParam === "list" ? viewParam : savedView === "calendar" ? "calendar" : "list";
+  const range = normalizeRange(rangeParam ?? cookieStore.get("aldama_range")?.value);
   const todayStr = kstDay(new Date().toISOString());
   const ym = /^\d{4}-\d{2}$/.test(mParam ?? "") ? mParam! : todayStr.slice(0, 7);
   const supabase = await createClient();
@@ -284,10 +288,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     .maybeSingle();
 
   const { heroMessage, heroDescription, badgeCount } = buildHero(events);
-  const activeEvents = visibleEvents.filter((event) => !event.is_completed);
-  const priorityEvents = activeEvents.filter((event) => ["overdue", "urgent", "today", "soon"].includes(getUrgency(event.due_at).level));
-  const upcomingEvents = activeEvents.filter((event) => !priorityEvents.includes(event));
+  const { overdue: overdueEvents, priority: priorityEvents, upcoming: upcomingEvents, upcomingTotal } = splitSchedule(visibleEvents, range);
   const completedEvents = visibleEvents.filter((event) => event.is_completed);
+  // 놓친 일정 패널: 히어로의 펼쳐보기를 눌렀거나, 놓친 일정을 수정하는 중이면 열어둔다
+  const overdueOpen = overdueParam === "1" || Boolean(editId && overdueEvents.some((event) => event.id === editId));
 
   return (
     <div className={`dashboard-page dashboard-page--${view}${addMode ? " dashboard-page--add" : ""}${addMode === "choose" ? " dashboard-page--add-choose" : ""}`}>
@@ -297,8 +301,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <AppBadge count={badgeCount} />
         <header className="page-header">
           <div>
-            <p className="page-header__eyebrow">ALDAMA</p>
-            <h1>{addMode ? "일정 추가" : view === "calendar" ? "캘린더" : "오늘의 일정"}</h1>
+            <h1 className={addMode ? undefined : "page-title--wordmark"}>{addMode ? "일정 추가" : "갈 피"}</h1>
           </div>
           <div className="page-header__actions">
             <NotificationSetup />
@@ -309,6 +312,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </header>
 
         {!addMode && <div className="dashboard-alerts">
+          {saved === "1" && <StatusAlert tone="success">일정이 저장되었습니다!</StatusAlert>}
           {connected !== undefined && <StatusAlert tone="success">LearningX 연결 완료 · 일정 {connected}개를 가져왔어요.</StatusAlert>}
           {syncError && syncError !== "TOKEN_INVALID" && <StatusAlert tone="warning">첫 동기화를 완료하지 못했어요. 잠시 후 다시 시도해주세요.</StatusAlert>}
           {restored === "1" && <StatusAlert tone="success">LearningX 원본 값으로 되돌렸어요.</StatusAlert>}
@@ -317,17 +321,43 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           {canvasSource?.status === "active" && canvasSource.last_sync_error && <StatusAlert tone="warning">최근 동기화가 일시적으로 실패했어요. 기존 일정은 유지됩니다.</StatusAlert>}
         </div>}
 
-        {!addMode && <section className="dashboard-hero" aria-label="일정 현황">
-          <div className="dashboard-hero__icon" aria-hidden="true"><AlertIcon /></div>
-          <div className="dashboard-hero__copy">
-            <strong>{heroMessage}</strong>
-            <p>{heroDescription}</p>
-          </div>
-          <div className="dashboard-hero__metric" aria-label={`${priorityEvents.length || activeEvents.length}개`}>
-            <strong>{priorityEvents.length || activeEvents.length}</strong>
-            <span>{priorityEvents.length ? "우선 일정" : "남은 일정"}</span>
-          </div>
-        </section>}
+        {/* 놓친 일정이 있으면 경고 배너, 없으면 칭찬 배너 */}
+        {!addMode && (overdueEvents.length > 0 ? (
+          <section className="dashboard-hero" aria-label="일정 현황">
+            <div className="dashboard-hero__icon" aria-hidden="true"><AlertIcon /></div>
+            <div className="dashboard-hero__copy">
+              <strong>{heroMessage}</strong>
+              <p>{heroDescription}</p>
+            </div>
+            <Link
+              href={overdueOpen ? "/dashboard" : "/dashboard?overdue=1"}
+              className="dashboard-hero__expand"
+              aria-expanded={overdueOpen}
+            >
+              {overdueOpen ? "접기" : "펼쳐보기"}
+            </Link>
+          </section>
+        ) : (
+          <section className="dashboard-hero dashboard-hero--calm" aria-label="일정 현황">
+            <div className="dashboard-hero__icon" aria-hidden="true"><CircleCheckIcon /></div>
+            <div className="dashboard-hero__copy">
+              <strong>놓친 일정 0개</strong>
+              <p>지금 페이스 그대로 가면 돼요</p>
+            </div>
+          </section>
+        ))}
+
+        {!addMode && overdueOpen && overdueEvents.length > 0 && (
+          <section className="overdue-panel" aria-labelledby="overdue-heading">
+            <div className="section-heading section-heading--list">
+              <h2 id="overdue-heading">놓친 일정</h2>
+              <form action={completeAllOverdue}>
+                <button type="submit" className="button button-muted overdue-complete-all">전체 완료</button>
+              </form>
+            </div>
+            <EventList events={overdueEvents} editId={editId} canvasSourceId={canvasSource?.id} />
+          </section>
+        )}
 
         {!addMode && !canvasSource && (
           <div className="dashboard-connect-action">
@@ -379,6 +409,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <p className="field-help">카톡 캡처나 공지 사진을 올릴 수 있어요. 최대 7MB입니다.</p>
             </form>
           </section>
+        )}
+
+        {addMode === "direct" && saved && (
+          <SaveConfirm key={saved} />
         )}
 
         {addMode === "direct" && (
@@ -517,17 +551,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </section>
           )}
 
-          {activeEvents.length > 0 && (
-            <Link href="/dashboard?view=calendar" className="week-summary-link">
-              <span><strong>전체 일정 {activeEvents.length}개</strong><small>날짜별 일정은 캘린더에서 확인하세요</small></span>
-              <ArrowRightIcon />
-            </Link>
-          )}
-
-          {upcomingEvents.length > 0 && (
+          {upcomingTotal > 0 && (
             <section aria-labelledby="upcoming-heading">
-              <div className="section-heading section-heading--list"><h2 id="upcoming-heading">다가오는 일정</h2><span className="count-badge">{upcomingEvents.length}</span></div>
-              <EventList events={upcomingEvents} editId={editId} canvasSourceId={canvasSource?.id} />
+              <div className="section-heading section-heading--list">
+                <h2 id="upcoming-heading">다가오는 일정</h2>
+                <UpcomingRangeFilter selected={range} />
+              </div>
+              {upcomingEvents.length > 0
+                ? <EventList events={upcomingEvents} editId={editId} canvasSourceId={canvasSource?.id} />
+                : <p className="upcoming-empty">이 기간에는 일정이 없어요. 기간을 늘려보세요.</p>}
             </section>
           )}
 

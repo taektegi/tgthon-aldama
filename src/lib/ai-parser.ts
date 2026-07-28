@@ -6,6 +6,7 @@ const EVENT_TYPES = ["assignment", "exam", "presentation", "application", "event
 const aiCandidateSchema = z.object({
   title: z.string().trim().min(1).max(80),
   event_type: z.enum(EVENT_TYPES),
+  starts_at: z.string().nullable(),
   due_at: z.string().nullable(),
   confidence: z.number().min(0).max(1),
   snippet: z.string().min(1).max(600),
@@ -29,10 +30,15 @@ function buildPrompt(rawText: string, now: Date): string {
 현재 시각: ${nowKst} (한국 시간, Asia/Seoul)
 
 규칙:
-- 각 할 일마다: title(간결한 한국어, 예: "보고서 제출"), event_type, due_at, confidence, snippet을 만드세요.
+- 각 할 일마다: title(간결한 한국어, 예: "보고서 제출"), event_type, starts_at, due_at, confidence, snippet을 만드세요.
 - event_type: assignment(제출/과제), exam(시험/퀴즈), presentation(발표/시연), application(신청/접수), event(행사/참석), other(기타) 중 하나.
-- due_at: 마감 일시를 ISO 8601 형식(+09:00 포함, 예: 2026-07-12T23:59:00+09:00)으로. "다음 주 금요일" 같은 상대 표현은 현재 시각 기준으로 계산. 시간이 없으면 23:59로. 날짜가 전혀 없으면 null.
-- 날짜가 없어도 해야 할 일이면 추출하세요 (예: "발표자료도 준비해주세요"). 이 경우 due_at은 null, confidence는 낮게.
+- 일시는 모두 ISO 8601 형식(+09:00 포함, 예: 2026-07-12T23:59:00+09:00)으로. "다음 주 금요일" 같은 상대 표현은 현재 시각 기준으로 계산.
+- starts_at와 due_at 구분:
+  - 제출·마감이 있는 일(과제, 신청 마감 등) → due_at에. 시간이 없으면 23:59로.
+  - 정해진 시각에 "열리는" 일(행사, 회의, 시험, 발표 등) → 그 시각을 starts_at에. 이 경우 due_at은 별도 마감이 없으면 null.
+  - 기간이 있는 일(신청 기간 7/1~7/10 등) → 시작을 starts_at, 끝을 due_at에.
+  - 해당 없는 쪽은 null.
+- 날짜가 없어도 해야 할 일이면 추출하세요 (예: "발표자료도 준비해주세요"). 이 경우 둘 다 null, confidence는 낮게.
 - confidence: 추출 확신도 0~1. 날짜와 행동이 명확하면 높게.
 - snippet: 근거가 된 원문 문장 그대로.
 - 같은 할 일을 중복 생성하지 마세요. 인사말/서명 등 할 일이 아닌 내용은 무시하세요.
@@ -64,11 +70,12 @@ async function callGemini(rawText: string, now: Date): Promise<NoticeCandidate[]
               properties: {
                 title: { type: "STRING" },
                 event_type: { type: "STRING", enum: [...EVENT_TYPES] },
+                starts_at: { type: "STRING", nullable: true },
                 due_at: { type: "STRING", nullable: true },
                 confidence: { type: "NUMBER" },
                 snippet: { type: "STRING" },
               },
-              required: ["title", "event_type", "due_at", "confidence", "snippet"],
+              required: ["title", "event_type", "starts_at", "due_at", "confidence", "snippet"],
             },
           },
         },
@@ -89,10 +96,14 @@ async function callGemini(rawText: string, now: Date): Promise<NoticeCandidate[]
 
   const parsed = z.array(aiCandidateSchema).parse(JSON.parse(text));
 
+  const toIso = (value: string | null) =>
+    value && !Number.isNaN(Date.parse(value)) ? new Date(value).toISOString() : null;
+
   return parsed.slice(0, 10).map((item) => ({
     title: item.title,
     eventType: item.event_type,
-    dueAt: item.due_at && !Number.isNaN(Date.parse(item.due_at)) ? new Date(item.due_at).toISOString() : null,
+    startsAt: toIso(item.starts_at),
+    dueAt: toIso(item.due_at),
     confidence: Math.min(Math.max(item.confidence, 0), 0.99),
     snippet: item.snippet,
   }));

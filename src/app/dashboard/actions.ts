@@ -38,6 +38,9 @@ export async function createEvent(formData: FormData) {
     due_at: parseKstLocal(parsed.data.due_at).toISOString(),
   });
   revalidatePath("/dashboard");
+  // 입력 화면에 남아서 저장 확인을 보여주고, 바로 다음 일정을 입력할 수 있게.
+  // saved 값을 매번 다르게(시각) 해서 연속 저장 때도 문구가 새로 뜨게 한다.
+  redirect(`/dashboard?add=direct&saved=${Date.now()}`);
 }
 
 const updateSchema = z.object({
@@ -87,7 +90,7 @@ export async function updateEvent(formData: FormData) {
 
   await supabase.from("events").update(patch).eq("id", parsed.data.id);
   revalidatePath("/dashboard");
-  redirect("/dashboard");
+  redirect("/dashboard?saved=1");
 }
 
 export async function restoreLearnXOriginal(formData: FormData) {
@@ -142,6 +145,19 @@ export async function toggleEvent(_previousState: ToggleEventState, formData: Fo
     message: updated.is_completed ? "완료했어요." : "미완료 일정으로 되돌렸어요.",
     isCompleted: updated.is_completed,
   };
+}
+
+/** 놓친 일정(마감 지남 + 미완료)을 한 번에 완료 처리. RLS 덕분에 내 일정만 바뀐다 */
+export async function completeAllOverdue() {
+  const { supabase } = await authenticatedClient();
+  const now = new Date().toISOString();
+  await supabase.from("events")
+    .update({ is_completed: true, completed_at: now })
+    .eq("is_completed", false)
+    .eq("is_hidden", false)
+    .lt("due_at", now);
+  revalidatePath("/dashboard");
+  redirect("/dashboard"); // 패널을 닫은 상태로 돌아간다
 }
 
 export async function deleteEvent(formData: FormData) {
