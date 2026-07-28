@@ -25,7 +25,7 @@ sun에게는 모든 명령어/개념에 "왜"를 비유로 쉽게 설명해줄 �
 - **4단계 푸시**: `src/lib/reminders.ts`(computeReminderStage, 테스트 있음) + `netlify/functions/send-due-reminders.mts`(15분마다). events.reminder_stage(0~4)로 중복 방지, 밀려도 최신 단계 1개만. 알림 태그는 `event-{id}` 재사용 → 알림센터에 카드당 1개, 완료 시 제거
 - **앱 배지**: 24h 내 미완료 개수. 대시보드 열 때/완료 시(`AppBadge.tsx`) + 푸시 수신 시(`public/sw.js`, payload.badgeCount)
 - 아이폰 조건: 홈 화면에 추가한 PWA만 푸시/배지 가능
-- **폰 실전 시험 아직 안 함** (마감 50분 뒤 카드 → 15분 내 알림+배지 확인)
+- 폰 실전 시험 완료 (2026-07-27 sun이 확인: 푸시+배지 정상)
 
 ## 오늘의 기타 변경 (2026-07-27)
 - 러닝엑스 연결 버튼: SubmitButton 재활용, "연결하는 중... 최대 1분" 진행 표시 (이모지 넣지 말 것 — sun이 뺌)
@@ -55,9 +55,8 @@ SUPABASE 3종, VAPID 3종, NEXT_PUBLIC_SITE_URL, GEMINI_API_KEY, TOKEN_ENCRYPTIO
 - Netlify: GitHub 연결로 main 자동 배포 작동 확인됨. PR엔 deploy-preview 체크가 붙음
 
 ## 다음 할 일
-1. **폰 알림 실전 시험** (위 알림/배지 섹션 참고)
-2. **퀴즈가 exam 카드로 들어오는지 확인** (sun에게 보고 약속, 아직 미확인)
-3. **Supabase Redirect URLs 확인**: `https://tgthon-aldama.netlify.app/**` + Site URL (안 하면 신규 가입 인증 꼬임)
+1. **Supabase Redirect URLs 수정 — Taeksoo 대기 중**: Site URL이 localhost로 확인됨(2026-07-27). sun은 Developer 등급이라 못 바꿈 → Taeksoo(Owner)에게 승격 or 직접 수정 요청함. Site URL=`https://tgthon-aldama.netlify.app`, Redirect URLs에 `https://tgthon-aldama.netlify.app/**`+`http://localhost:3000/**`
+2. **퀴즈가 exam 카드로 들어오는지 확인** (진행 중 — 대시보드에 퀴즈 카드 뜨는 것까지 확인)
 4. 동기 계정 동기화 재확인 (마이그레이션 적용 후 성공했는지)
 5. AI 과목 추측, "오늘 할 일" 브리핑, Resend SMTP, /share AI 캐시
 6. 학교에 OAuth 개발자 키 제안 (완성품 들고)
