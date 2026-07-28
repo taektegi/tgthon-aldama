@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowRightIcon } from "@/app/components/UiIcons";
 import { createClient } from "@/lib/supabase/server";
 import { OnboardingCarousel } from "../OnboardingCarousel";
 
@@ -12,9 +13,7 @@ export default async function WelcomePage() {
     <main className="page-shell landing-shell">
       <section className="landing-hero">
         <p className="eyebrow">ALDAMA · 알다마</p>
-        <h1>
-          환영해요! 알다마는 이렇게 써요
-        </h1>
+        <h1>알다마 시작하기</h1>
 
         <div className="landing-carousel">
           <OnboardingCarousel />
@@ -22,6 +21,7 @@ export default async function WelcomePage() {
 
         <Link className="button button-primary landing-cta" href="/dashboard">
           내 일정 카드 시작하기
+          <ArrowRightIcon />
         </Link>
       </section>
     </main>

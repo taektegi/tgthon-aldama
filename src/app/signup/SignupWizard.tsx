@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { CheckIcon } from "@/app/components/UiIcons";
 import { sendOtp, checkVerified, setPassword } from "./actions";
 
 type Step = "email" | "verify" | "password" | "done";
@@ -132,7 +133,7 @@ export function SignupWizard() {
 
       {step === "done" && (
         <div className="signup-complete">
-          <div className="signup-complete__icon" aria-hidden>🎉</div>
+          <div className="signup-complete__icon" aria-hidden><CheckIcon /></div>
           <h2>회원가입이 완료되었어요!</h2>
           <Link
             className="button button-primary"

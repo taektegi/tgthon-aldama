@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
+import { CheckIcon, UndoIcon } from "@/app/components/UiIcons";
 import { toggleEvent, type ToggleEventState } from "./actions";
 
 const initialToggleEventState: ToggleEventState = { status: "idle", message: "" };
@@ -38,6 +39,7 @@ export function CompleteButton({ id, title, isCompleted }: { id: string; title: 
         disabled={isPending}
         aria-label={`${title} ${isCompleted ? "미완료로 변경" : "완료 처리"}`}
       >
+        {!isPending && (isCompleted ? <UndoIcon /> : <CheckIcon />)}
         {isPending ? "처리 중..." : isCompleted ? "되돌리기" : "완료"}
       </button>
       {state.message && (

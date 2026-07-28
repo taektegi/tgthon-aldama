@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { StatusAlert } from "@/app/components/States";
+import { ArrowLeftIcon } from "@/app/components/UiIcons";
 import { canvasSettingsUrl } from "@/lib/canvas/config";
 import { SubmitButton } from "@/app/login/SubmitButton";
 import { connectLearnX } from "./actions";
@@ -10,7 +11,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   rateLimited: "e-Campus 요청이 많아요. 잠시 후 다시 시도해주세요.",
   unavailable: "e-Campus가 일시적으로 불안정해요. 잠시 후 다시 시도해주세요.",
   save: "저장 중 문제가 생겼어요. 다시 시도해주세요.",
-  config: "러닝엑스 서버 설정이 완료되지 않았어요. 관리자에게 문의해주세요.",
+  config: "LearningX 서버 설정이 완료되지 않았어요. 관리자에게 문의해주세요.",
 };
 
 export default async function ConnectLearnXPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -21,7 +22,7 @@ export default async function ConnectLearnXPage({ searchParams }: { searchParams
   return (
     <main className="page-shell page-shell--narrow connect-page">
       <header className="page-header">
-        <div><p className="page-header__eyebrow">일정 자동 불러오기</p><h1>러닝엑스 연결</h1><p className="page-description">한 번 연결하면 과제가 자동으로 들어오고, 제출한 과제는 완료 상태로 바뀝니다.</p></div>
+        <div><Link href="/settings" className="back-link"><ArrowLeftIcon />설정</Link><p className="page-header__eyebrow">일정 자동 불러오기</p><h1>LearningX 연결</h1><p className="page-description">한 번 연결하면 과제가 자동으로 들어오고, 제출한 과제는 완료 상태로 바뀝니다.</p></div>
       </header>
 
       {error && <StatusAlert tone="danger">{ERROR_MESSAGES[error] ?? "문제가 생겼어요."}</StatusAlert>}
@@ -43,8 +44,8 @@ export default async function ConnectLearnXPage({ searchParams }: { searchParams
           <form action={connectLearnX} className="form-stack">
             <label className="label">토큰 붙여넣기<span className="field-help">토큰은 생성 직후 한 번만 표시됩니다.</span><input className="field" name="token" type="password" required autoComplete="off" placeholder="토큰을 여기에 붙여넣기" /></label>
             {serverConfigured
-              ? <SubmitButton type="submit" className="button button-accent button-block" pendingLabel="연결하는 중... 최대 1분 정도 걸릴 수 있어요">연결하기</SubmitButton>
-              : <button type="submit" className="button button-accent button-block" disabled>연결하기</button>}
+              ? <SubmitButton type="submit" className="button button-primary button-block" pendingLabel="연결하는 중... 최대 1분 정도 걸릴 수 있어요">연결하기</SubmitButton>
+              : <button type="submit" className="button button-primary button-block" disabled>연결하기</button>}
             {!serverConfigured && <StatusAlert tone="danger">서버 환경 설정이 완료되지 않아 지금은 연결할 수 없어요.</StatusAlert>}
           </form>
         </li>
