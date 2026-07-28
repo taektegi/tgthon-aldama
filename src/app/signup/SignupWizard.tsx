@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { CheckIcon } from "@/app/components/UiIcons";
 import { sendOtp, checkVerified, setPassword } from "./actions";
 
 type Step = "email" | "verify" | "password" | "done";
@@ -29,17 +30,20 @@ export function SignupWizard() {
   const stepIndex = { email: 1, verify: 2, password: 3, done: 4 }[step];
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div className="signup-wizard" aria-busy={busy}>
       {step !== "done" && (
-        <p className="muted" style={{ margin: 0, fontSize: 13 }}>단계 {stepIndex} / 3</p>
+        <div className="signup-progress">
+          <div className="signup-progress__label"><span>회원가입 단계</span><strong>{stepIndex} / 3</strong></div>
+          <progress value={stepIndex} max={3}>단계 {stepIndex} / 3</progress>
+        </div>
       )}
       {error && (
-        <p style={{ color: "#b42318", background: "#fff0f0", padding: 12, borderRadius: 10, margin: 0 }}>{error}</p>
+        <p className="status-alert status-alert--danger" role="alert">{error}</p>
       )}
 
       {step === "email" && (
         <form
-          style={{ display: "grid", gap: 16 }}
+          className="form-stack"
           onSubmit={(event) => {
             event.preventDefault();
             run(() => sendOtp(email), "verify");
@@ -57,30 +61,29 @@ export function SignupWizard() {
               autoComplete="email"
             />
           </label>
-          <button className="button button-primary" disabled={busy} style={{ padding: "14px 0", fontSize: 16 }}>
+          <button className="button button-primary button-block" disabled={busy}>
             {busy ? "전송 중..." : "인증 메일 받기"}
           </button>
         </form>
       )}
 
       {step === "verify" && (
-        <div style={{ display: "grid", gap: 16 }}>
-          <p className="muted" style={{ margin: 0, lineHeight: 1.7 }}>
+        <div className="form-stack">
+          <p className="signup-wizard__message">
             <strong>{email}</strong> 로 인증 메일을 보냈어요.<br />
             메일함에서 <strong>“Confirm email address”</strong> 링크를 누른 뒤, 이 창으로 돌아와 아래 버튼을 눌러주세요.
           </p>
           <button
             type="button"
-            className="button button-primary"
             disabled={busy}
             onClick={() => run(() => checkVerified(), "password")}
-            style={{ padding: "14px 0", fontSize: 16 }}
+            className="button button-primary button-block"
           >
             {busy ? "확인 중..." : "인증 확인"}
           </button>
           <button
             type="button"
-            className="button button-muted"
+            className="button button-muted button-block"
             disabled={busy}
             onClick={() => run(() => sendOtp(email), "verify")}
           >
@@ -91,15 +94,15 @@ export function SignupWizard() {
 
       {step === "password" && (
         <form
-          style={{ display: "grid", gap: 16 }}
+          className="form-stack"
           onSubmit={(event) => {
             event.preventDefault();
             run(() => setPassword(pw, pwConfirm), "done");
           }}
         >
-          <p className="muted" style={{ margin: 0 }}>이메일 인증 완료! 이제 비밀번호를 정해주세요.</p>
+          <p className="signup-wizard__message">이메일 인증 완료! 이제 비밀번호를 정해주세요.</p>
           <label className="label">
-            비밀번호 <span className="muted" style={{ fontWeight: 400 }}>(8자 이상)</span>
+            비밀번호 <span className="field-help">8자 이상</span>
             <input
               className="field"
               type="password"
@@ -122,20 +125,19 @@ export function SignupWizard() {
               autoComplete="new-password"
             />
           </label>
-          <button className="button button-primary" disabled={busy} style={{ padding: "14px 0", fontSize: 16 }}>
+          <button className="button button-primary button-block" disabled={busy}>
             {busy ? "저장 중..." : "회원가입하기"}
           </button>
         </form>
       )}
 
       {step === "done" && (
-        <div style={{ display: "grid", gap: 16, justifyItems: "center", textAlign: "center", padding: "12px 0" }}>
-          <div style={{ fontSize: 56 }} aria-hidden>🎉</div>
-          <h2 style={{ margin: 0 }}>회원가입이 완료되었어요!</h2>
+        <div className="signup-complete">
+          <div className="signup-complete__icon" aria-hidden><CheckIcon /></div>
+          <h2>회원가입이 완료되었어요!</h2>
           <Link
             className="button button-primary"
             href="/login?next=%2Fwelcome"
-            style={{ padding: "14px 28px", fontSize: 16 }}
           >
             바로 로그인하러 갈까요?
           </Link>

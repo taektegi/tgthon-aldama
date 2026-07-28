@@ -113,16 +113,35 @@ export async function restoreLearnXOriginal(formData: FormData) {
   redirect(result.ok ? "/dashboard?restored=1" : "/dashboard?restoreError=1");
 }
 
-export async function toggleEvent(formData: FormData) {
+export type ToggleEventState = {
+  status: "idle" | "success" | "error";
+  message: string;
+  isCompleted?: boolean;
+};
+
+export async function toggleEvent(_previousState: ToggleEventState, formData: FormData): Promise<ToggleEventState> {
   const id = z.uuid().safeParse(formData.get("id"));
   const completed = formData.get("completed") === "true";
-  if (!id.success) return;
+  if (!id.success) {
+    return { status: "error", message: "일정 정보를 확인하지 못했어요. 화면을 새로고침해주세요." };
+  }
   const { supabase } = await authenticatedClient();
-  await supabase.from("events").update({
-    is_completed: !completed,
+  const nextCompleted = !completed;
+  const { data: updated, error } = await supabase.from("events").update({
+    is_completed: nextCompleted,
     completed_at: completed ? null : new Date().toISOString(),
-  }).eq("id", id.data);
+  }).eq("id", id.data).select("id, is_completed").maybeSingle();
+
+  if (error || !updated) {
+    return { status: "error", message: "완료 상태를 저장하지 못했어요. 잠시 후 다시 시도해주세요." };
+  }
+
   revalidatePath("/dashboard");
+  return {
+    status: "success",
+    message: updated.is_completed ? "완료했어요." : "미완료 일정으로 되돌렸어요.",
+    isCompleted: updated.is_completed,
+  };
 }
 
 export async function deleteEvent(formData: FormData) {

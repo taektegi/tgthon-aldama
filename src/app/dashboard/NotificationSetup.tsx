@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { BellIcon } from "@/app/components/UiIcons";
 import { saveSubscription } from "./notifications-actions";
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -72,18 +73,19 @@ export function NotificationSetup() {
   if (!isSupported) return null;
 
   if (status === "subscribed") {
-    return <p className="muted" style={{ fontSize: 13, margin: 0 }}>🔔 마감 6시간 전 알림이 켜져 있어요.</p>;
+    return <p className="notification-status" role="status"><BellIcon /> 알림 켜짐</p>;
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-      <button type="button" className="button button-muted" onClick={handleEnable} disabled={status === "subscribing"}>
-        🔔 마감 알림 받기
+    <div className="notification-setup" aria-live="polite">
+      <button type="button" className="button button-muted notification-setup__button" onClick={handleEnable} disabled={status === "subscribing"}>
+        {status !== "subscribing" && <BellIcon />}
+        {status === "subscribing" ? "알림 설정 중..." : "알림"}
       </button>
       {status === "denied" && (
-        <span className="muted" style={{ fontSize: 13 }}>알림 권한이 거부됐어요. 브라우저 설정에서 허용해주세요.</span>
+        <span className="notification-setup__message">브라우저 설정에서 알림을 허용해주세요.</span>
       )}
-      {status === "error" && <span className="muted" style={{ fontSize: 13 }}>알림 설정 중 문제가 발생했어요.</span>}
+      {status === "error" && <span className="notification-setup__message">알림 설정 중 문제가 발생했어요.</span>}
     </div>
   );
 }

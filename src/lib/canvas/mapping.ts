@@ -84,7 +84,7 @@ export function toCalendarEventRow(
     source_id: sourceId,
     external_uid: `canvas:event:${event.id}`,
     title: event.title,
-    subject: event.context_name?.trim() || "러닝엑스 캘린더",
+    subject: event.context_name?.trim() || "LearningX 캘린더",
     event_type: "event",
     starts_at: event.start_at,
     due_at: event.end_at ?? event.start_at,
