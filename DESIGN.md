@@ -1,40 +1,52 @@
 ---
 version: "alpha"
 name: "Aldama Quiet Wallet"
-description: "A calm, mobile-first schedule wallet for university notices, assignments, exams, and events."
+description: "A clean, mobile-first schedule wallet with charcoal controls and bright semantic deadline colors."
 colors:
-  background: "#eceff2"
-  surface: "#fefefe"
-  surface-soft: "#f4f6f8"
-  foreground: "#111318"
-  foreground-soft: "#46515e"
-  primary: "#395e7d"
-  primary-deep: "#294861"
-  primary-pale: "#dce6ee"
-  primary-soft: "#e7edf2"
+  background: "#f3f3f4"
+  surface: "#ffffff"
+  surface-soft: "#f7f7f8"
+  foreground: "#191a1c"
+  foreground-soft: "#4c4e52"
+  primary: "#3a3b3e"
+  primary-deep: "#2d2e31"
+  primary-pale: "#e4e4e6"
+  primary-soft: "#ececee"
   on-primary: "#ffffff"
-  accent: "#bd742e"
-  on-accent: "#2c1b0b"
-  danger: "#c64143"
-  danger-pale: "#fbeaec"
-  warning: "#9a5c25"
-  warning-pale: "#f8eee3"
-  success: "#2f755c"
-  success-pale: "#e7f2ed"
-  muted: "#65707d"
-  border: "#d5d9de"
-  border-strong: "#bcc3cb"
+  accent: "#ffc04d"
+  on-accent: "#5b4000"
+  danger: "#ff7a7a"
+  danger-text: "#c93444"
+  danger-pale: "#fff1f1"
+  overdue: "#8a5a68"
+  overdue-text: "#76424f"
+  overdue-pale: "#f6eff1"
+  warning: "#ffc04d"
+  warning-text: "#9b6400"
+  warning-pale: "#fff7e3"
+  info: "#63b3ff"
+  info-text: "#1873b8"
+  info-pale: "#edf7ff"
+  complete: "#7e8791"
+  no-deadline: "#b8bdc3"
+  no-deadline-text: "#5d636a"
+  no-deadline-pale: "#f1f2f3"
+  success: "#33765d"
+  success-pale: "#eaf5f0"
+  muted: "#696c72"
+  border: "#e1e2e4"
+  border-strong: "#c7c9cc"
   disabled-surface: "#e1e5e9"
   disabled-text: "#7a838d"
   placeholder: "#7d8791"
   label-text: "#37414c"
-  danger-border: "#e7c5c7"
-  warning-border: "#e8d5bf"
+  danger-border: "#ffd1d1"
+  warning-border: "#ffe4a3"
   success-border: "#c8ddd4"
   neutral-badge: "#edf0f2"
   neutral-badge-text: "#59636d"
-  urgency-text: "#88501f"
-  inactive-dot: "#c4cbd1"
+  urgency-text: "#9b6400"
+  inactive-dot: "#c4c4c7"
 typography:
   app-ui:
     fontFamily: "-apple-system, BlinkMacSystemFont, SF Pro Display, SF Pro Text, Noto Sans KR, Apple SD Gothic Neo, Segoe UI, sans-serif"
@@ -196,14 +208,16 @@ components:
 
 ## Overview
 
-알다마는 대학생이 흩어진 공지, 과제, 시험, 신청 및 행사 일정을 빠르게 모으고 마감 상태를 파악하는 모바일 중심 PWA다. 디자인 콘셉트는 **콰이어트 월렛**이다. 차분하고 정돈된 금융 앱처럼 중요한 일정과 상태가 먼저 보이며, 한 손으로 필요한 행동에 도달할 수 있어야 한다.
+알다마는 대학생이 흩어진 공지, 과제, 시험, 신청 및 행사 일정을 빠르게 모으고 마감 상태를 파악하는 모바일 중심 PWA다. 디자인 콘셉트는 **콰이어트 월렛**이다. 깨끗한 흰 카드, 짙은 회색 제어 요소, 밝은 상태 색을 사용해 중요한 일정과 상태가 먼저 보이며 한 손으로 필요한 행동에 도달할 수 있어야 한다.
 
 화면의 주인공은 일정과 마감 상태다. 장식은 정보 이해를 방해하지 않아야 하며, 펭귄 마스코트는 빈 화면, 오류, 동기화, 마감 임박처럼 사용자의 다음 행동을 안내하는 상태 요소로 사용한다.
 
 ## Brand principles
 
-- 남색은 주요 행동과 선택 상태를 담당하고, 청회색은 표면과 보조 정보의 계층을 만든다. 주황색은 오늘 또는 임박한 일정에 제한적으로 사용한다.
-- 위험, 마감 초과, 실패 상태에는 빨간색을 사용하되 반드시 문구나 아이콘을 함께 제공한다.
+- 짙은 회색은 주요 행동과 선택 상태를 담당하고, 중성 회색은 표면과 보조 정보의 계층을 만든다.
+- 밝은 레드 `#ff7a7a`는 24시간 이내의 가장 긴박한 일정, 앰버 `#ffc04d`는 24시간 초과~3일 이내의 마감 임박 일정, 블루 `#63b3ff`는 3일보다 여유 있는 일반 일정에 사용한다.
+- 마감이 지난 일정은 와인 그레이 `#8a5a68`, 완료 일정은 쿨 그레이 `#7e8791`, 마감이 없는 일정은 밝은 중성 회색 `#b8bdc3`으로 분리한다. 작은 글자는 같은 색상 계열의 대비 보정 톤을 사용한다.
+- 위험과 실패 상태에는 레드를 사용하되, 마감 상태 색과 함께 반드시 구체적인 문구나 아이콘을 제공한다.
 - 12~16px의 절제된 모서리와 아래 방향의 부드러운 그림자를 사용하되 카드 안에 불필요하게 카드를 중첩하지 않는다.
 - 짧고 친근한 한국어 문구를 사용한다. 오류 원인과 사용자가 할 수 있는 다음 행동을 숨기지 않는다.
 - 펭귄 이미지는 장식적으로 반복하지 않는다. 한 화면에서 하나의 주요 상태 메시지에 우선 배치한다.
@@ -243,16 +257,16 @@ components:
 ### Buttons
 
 - 기본 높이는 44px 이상이다.
-- 주요 행동은 짙은 민트 배경과 흰색 텍스트를 사용한다.
-- 보조 행동은 옅은 민트 배경과 짙은 민트 텍스트를 사용한다.
+- 주요 행동은 짙은 회색 배경과 흰색 텍스트를 사용한다.
+- 보조 행동은 옅은 회색 배경과 짙은 회색 텍스트를 사용한다.
 - 삭제 같은 파괴적 행동은 위험 색상과 명확한 동사를 사용한다.
 - 처리 중에는 버튼을 비활성화하고 `처리 중`, `저장 중`, `동기화 중`처럼 현재 상태를 표시한다.
 - 아이콘만 있는 버튼에는 접근 가능한 이름을 제공한다.
 
 ### Cards
 
-- 기본 카드는 흰색 표면, 1px 테두리, 22px 모서리를 사용한다.
-- 일정 카드의 왼쪽 상태 레일은 보조 신호이며 상태 텍스트를 대체하지 않는다.
+- 기본 카드는 흰색 표면, 16px 모서리와 부드러운 아래 방향 그림자를 사용한다.
+- 일정 카드의 오른쪽 책갈피는 D-day와 상태 색을 함께 보여주는 보조 신호이며 상태 텍스트를 대체하지 않는다.
 - 많은 일정이 있을 때도 카드 간격과 제목 줄바꿈이 안정적으로 유지되어야 한다.
 
 ### Fields
@@ -265,8 +279,8 @@ components:
 ### Badges and status
 
 - 배지는 색상과 짧은 텍스트를 함께 사용한다.
-- 일정 카드의 마감 상태 배지는 34px 높이와 15px 굵은 글자를 사용해 제목보다 먼저 인식되게 한다. 마감 초과·긴급은 채운 위험색, 오늘·임박은 채운 강조색, 여유 있는 D-day는 옅은 청회색으로 강약을 구분한다.
-- `마감 초과`, `마감 임박`, `오늘`, `완료`, `러닝엑스` 상태는 서로 구분되는 문구를 유지한다.
+- 일정 카드의 마감 상태 배지는 34px 높이와 15px 굵은 글자를 사용해 제목보다 먼저 인식되게 한다. 24시간 이내는 레드, 24시간 초과~3일 이내는 앰버, 3일 초과는 블루, 마감 지남은 와인 그레이, 완료는 쿨 그레이로 강약을 구분한다.
+- `24시간 이내`, `마감 임박`, `마감 지남`, `일반`, `완료`, `LearningX` 상태는 서로 구분되는 문구를 유지한다.
 - 성공, 경고, 실패 메시지는 `role="status"` 또는 `role="alert"`를 상황에 맞게 사용한다.
 
 ## Mascot usage
