@@ -12,7 +12,7 @@ export default async function SignupPage() {
   return (
     <main className="page-shell page-shell--auth">
       <section className="card auth-card">
-        <Link href="/" className="back-link"><ArrowLeftIcon />알다마</Link>
+        <Link href="/" className="back-link"><ArrowLeftIcon />갈피</Link>
         <h1>회원가입</h1>
         <p className="auth-card__intro">이메일 인증 한 번이면 바로 시작할 수 있어요.</p>
         <SignupWizard />

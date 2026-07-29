@@ -39,7 +39,7 @@ export function splitSchedule<T extends Sectionable>(
   const limit = range === "all" ? Infinity : Number(range);
   const upcoming = rest.filter(
     (event) => {
-      const referenceTime = getEventDdayTime(event);
+      const referenceTime = getEventDdayTime(event, now);
       return referenceTime === null || kstDayDiff(referenceTime, now) <= limit;
     },
   );

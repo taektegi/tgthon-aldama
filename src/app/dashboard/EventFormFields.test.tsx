@@ -20,4 +20,10 @@ describe("EventFormFields", () => {
     expect(html).toMatch(/<input(?=[^>]*name="title")(?=[^>]*required="")[^>]*>/);
     expect(html).not.toMatch(/<input(?=[^>]*name="due_at")(?=[^>]*required)[^>]*>/);
   });
+
+  it("시작 기준이 시작 후 마감 기준으로 자동 전환됨을 안내한다", () => {
+    const html = renderToStaticMarkup(<EventFormFields />);
+    expect(html).toContain("시작 전에는 시작 시간까지 계산");
+    expect(html).toContain("시작 시간이 지나면 마감 시간 기준으로 자동 전환돼요.");
+  });
 });

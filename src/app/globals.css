@@ -37,6 +37,13 @@
   --dw-none-text: #5d636a;
   --dw-success: #33765d;
   --dw-success-soft: #eaf5f0;
+  --dw-span-soft: #e2f0e9;
+  --dw-span-text: #2c6350;
+  --dw-span-live: #3f8a6c;
+  --dw-span-live-text: #fff;
+  --bar-height: 15px;
+  /* 띠 세 줄 + 사이 간격 2px 두 개 = 49px */
+  --bar-area: 49px;
   --dw-radius-control: 12px;
   --dw-radius-card: 16px;
   --dw-radius-nav: 18px;
@@ -388,7 +395,8 @@ textarea.field { resize: vertical; min-height: 116px; }
 .calendar-card { margin-bottom: var(--space-5); padding: var(--space-4) 10px 12px; }
 .calendar-card__header { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: var(--space-2); margin: 0 4px 14px; text-align: center; }
 .calendar-card__header strong { font-size: 18px; }
-.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.calendar-grid,
+.calendar-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
 .calendar-grid__weekday { min-height: 30px; display: grid; place-items: center; color: var(--muted); font-size: 12px; font-weight: 800; }
 .calendar-day { position: relative; min-width: 0; min-height: 54px; display: grid; place-items: center; align-content: center; gap: 2px; border: 2px solid transparent; border-radius: 12px; font-size: 13px; font-weight: 750; }
 .calendar-day:hover { background: var(--surface-soft); }
@@ -1021,7 +1029,9 @@ body:has(.dashboard-page) {
   height: 96px;
   display: grid;
   place-items: start center;
-  padding-top: 26px;
+  align-content: start;
+  gap: 3px;
+  padding-top: 17px;
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
   background: var(--dw-info);
   color: #fff;
@@ -1031,6 +1041,20 @@ body:has(.dashboard-page) {
   letter-spacing: -.035em;
   line-height: 1;
   text-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+}
+
+/* "시작까지 / D-2" 두 줄. 위 줄은 기준을 알려주는 안내라 작고 옅게 둔다 */
+.dashboard-page .event-card__bookmark-target {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  opacity: .88;
+}
+
+.dashboard-page .event-card__bookmark-value {
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
 }
 
 .dashboard-page .event-card--overdue .event-card__bookmark { background: var(--dw-overdue); }
@@ -1064,6 +1088,24 @@ body:has(.dashboard-page) {
   font-size: 13px;
   font-weight: 760;
   line-height: 1.35;
+}
+
+/* 진행중과 급함 라벨을 나란히 둔다. 급함을 가리지 않으면서 지금 열려 있다는 걸 같이 보여준다 */
+.dashboard-page .event-card__labels {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dashboard-page .event-card__status--ongoing {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--dw-success-soft);
+  color: var(--dw-success);
+  font-size: 12px;
+  font-weight: 750;
 }
 
 .dashboard-page .event-card__status--overdue { color: var(--dw-overdue-text); }
@@ -1397,23 +1439,49 @@ body:has(.dashboard-page) {
 
 .dashboard-page .calendar-card__header strong {
   color: var(--foreground);
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 730;
 }
 
 .dashboard-page .calendar-grid__weekday {
   color: #78828c;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
+/* 숫자는 왼쪽 위, 개수 배지는 오른쪽 위. 아래쪽은 제목이 적힌 기간 띠가 쓴다.
+   가운데 정렬로 두면 세로 공간이 남지 않아 띠를 넣을 자리가 없다 */
 .dashboard-page .calendar-day {
-  min-height: 56px;
+  min-height: 86px;
+  padding: 0;
   border-width: 1px;
   border-radius: 11px;
   font-size: 13px;
   font-weight: 680;
   transition: background-color 120ms ease, transform 120ms ease;
+}
+
+/* 숫자와 개수 배지를 한 덩어리로 묶어 왼쪽 위에 붙인다.
+   배지를 오른쪽 모서리에 두면 자기 숫자보다 다음 날 숫자에 더 가까워져서
+   "15일 배지"가 "16일 것"으로 읽힌다 */
+.dashboard-page .calendar-day__head {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* 숫자를 알약 모양으로 둔다. 선택한 날에는 여기에 색이 채워진다 (두 자리 수도 들어가게) */
+.dashboard-page .calendar-day__number {
+  min-width: 19px;
+  height: 19px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 3px;
+  border-radius: 999px;
+  line-height: 1;
 }
 
 .dashboard-page .calendar-day:hover {
@@ -1429,24 +1497,44 @@ body:has(.dashboard-page) {
   color: var(--dw-info-text);
 }
 
+/* 선택 표시는 칸이 아니라 날짜 숫자에 넣는다.
+   칸을 칠하면 어떻게 칠해도 띠와 같은 공간을 다투게 된다 —
+   연회색이면 연민트 띠와 헷갈리고, 진하게 채우면 띠를 깔아뭉개고,
+   흰 막으로 덮으면 비활성처럼 보였다. 숫자가 있는 왼쪽 위는 띠가 절대 닿지 않는 자리다 */
 .dashboard-page .calendar-day--selected {
-  border-color: var(--dw-primary-strong);
-  background: var(--dw-primary-strong);
+  /* 기본 스타일(.calendar-day--selected)이 진한 테두리를 켜므로 여기서 끈다 */
+  border-color: transparent;
+}
+
+.dashboard-page .calendar-day--selected .calendar-day__number {
+  background: var(--dw-primary);
   color: #fff;
 }
 
-.dashboard-page .calendar-day--selected:hover {
-  border-color: var(--dw-hero-control);
-  background: var(--dw-hero-control);
+.dashboard-page .calendar-day__count {
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
+  font-weight: 800;
 }
 
-.dashboard-page .calendar-day__count {
-  font-size: 9.5px;
+/* 줄이 넘쳐 못 그린 기간 개수. 조용히 사라지지 않게 칸 오른쪽 아래에 남긴다 */
+.dashboard-page .calendar-day__more {
+  position: absolute;
+  right: 5px;
+  bottom: 3px;
+  color: var(--dw-muted);
+  font-size: 9px;
   font-weight: 800;
 }
 
 .dashboard-page .calendar-day__count--overdue {
   background: var(--dw-overdue);
+  color: #fff;
+}
+
+.dashboard-page .calendar-day__count--today {
+  background: var(--dw-danger);
   color: #fff;
 }
 
@@ -1465,9 +1553,65 @@ body:has(.dashboard-page) {
   color: #6c747c;
 }
 
-.dashboard-page .calendar-day--selected .calendar-day__count--completed {
-  border-color: transparent;
-  color: #eef3f6;
+/* 기간 띠(시작과 마감이 둘 다 있는 일정).
+   띠는 제목을 담아야 해서 여러 칸을 덮는 하나의 요소다. 그래서 날짜 칸 안에 넣을 수 없고,
+   주마다 칸 위에 겹쳐 놓는 별도 층으로 그린다. 클릭은 아래 날짜 칸이 받아야 하므로
+   이 층은 pointer-events: none. */
+.dashboard-page .calendar-week { position: relative; }
+.dashboard-page .calendar-week + .calendar-week { margin-top: 2px; }
+
+.dashboard-page .calendar-week__days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.dashboard-page .calendar-week__bars {
+  position: absolute;
+  right: 0;
+  bottom: 3px;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: repeat(3, var(--bar-height));
+  gap: 2px;
+  pointer-events: none;
+}
+
+.dashboard-page .calendar-span-bar {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 5px;
+  background: var(--dw-span-soft);
+  color: var(--dw-span-text);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: -.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 지금 진행 중인 기간은 한 톤 진하게. 아직 시작 안 한 기간과 눈으로 갈린다 */
+.dashboard-page .calendar-span-bar--ongoing {
+  background: var(--dw-span-live);
+  color: var(--dw-span-live-text);
+}
+
+/* 진짜 시작·끝은 둥글게 깎고 3px 물러난다. 여백이 있어야 같은 줄에서 바로 이어지는
+   다른 띠와 맞붙지 않아 "여기서 끝났다"가 분명해진다.
+   주가 넘어가는 쪽은 각진 채로 칸 끝까지 붙여 "다음 주로 이어진다"는 신호로 남긴다 */
+.dashboard-page .calendar-span-bar--opens {
+  margin-left: 3px;
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+
+.dashboard-page .calendar-span-bar--closes {
+  margin-right: 3px;
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
 }
 
 .dashboard-page .calendar-legend {
@@ -1475,7 +1619,8 @@ body:has(.dashboard-page) {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   margin: 10px 6px 0;
   color: #687481;
   font-size: 10px;
@@ -1498,9 +1643,22 @@ body:has(.dashboard-page) {
   background: var(--dw-overdue);
 }
 
+.dashboard-page .calendar-legend__dot--today {
+  background: var(--dw-danger);
+}
+
 .dashboard-page .calendar-legend__dot--due-soon {
   background: var(--dw-warning);
 }
+
+.dashboard-page .calendar-legend__bar {
+  width: 14px;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--dw-span-soft);
+}
+
+.dashboard-page .calendar-legend__bar--ongoing { background: var(--dw-span-live); }
 
 .dashboard-page .selected-date--calendar {
   min-height: 70px;
@@ -1525,6 +1683,19 @@ body:has(.dashboard-page) {
   color: var(--dw-muted);
   font-size: 12px;
   font-weight: 650;
+}
+
+/* D 표시는 항상 오늘 기준이라, 다른 날을 볼 때 "· 내일" 같은 기준점을 먼저 읽히게 한다 */
+.dashboard-page .selected-date--calendar strong .selected-date__relative {
+  color: var(--dw-muted);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.dashboard-page .selected-date--calendar .selected-date__ongoing {
+  color: var(--dw-success);
+  font-size: 12px;
+  font-weight: 750;
 }
 
 .dashboard-page .calendar-add-button {
@@ -1925,8 +2096,13 @@ body:has(.dashboard-page) {
   }
 
   .dashboard-page .event-card__bookmark {
-    padding-top: 23px;
+    gap: 2px;
+    padding-top: 15px;
     font-size: 18px;
+  }
+
+  .dashboard-page .event-card__bookmark-target {
+    font-size: 9px;
   }
 
   .dashboard-page .dashboard-error__card {
@@ -1934,14 +2110,18 @@ body:has(.dashboard-page) {
   }
 
   .dashboard-page .calendar-day {
-    min-height: 48px;
+    min-height: 78px;
+    --bar-height: 14px;
+    --bar-area: 46px;
   }
 
   .dashboard-page .calendar-card {
     padding-inline: 6px;
   }
 
-  .dashboard-page .calendar-grid {
+  .dashboard-page .calendar-weekdays,
+  .dashboard-page .calendar-week__days,
+  .dashboard-page .calendar-week__bars {
     gap: 0;
   }
 

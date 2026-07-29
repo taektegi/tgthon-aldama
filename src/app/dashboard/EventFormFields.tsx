@@ -22,8 +22,9 @@ export function EventFormFields({ event, defaultDate }: { event?: EventFormValue
       </div>
       <label className="label form-grid__full">제목<input className="field" name="title" defaultValue={event?.title ?? ""} placeholder="예: 보고서 제출" required /></label>
       <div className="time-basis-control form-grid__full">
-        <p>D-day와 카드 색상은 선택한 기준 시간까지 남은 시간으로 계산돼요.</p>
-        <label><input name="use_start_time_for_d_day" type="checkbox" defaultChecked={event?.d_day_basis === "starts_at"} />시작 시간을 D-day 기준으로 사용</label>
+        <p>D-day와 카드 색상, 일정 분류는 같은 기준 시간으로 계산돼요.</p>
+        <label><input name="use_start_time_for_d_day" type="checkbox" defaultChecked={event?.d_day_basis === "starts_at"} />시작 전에는 시작 시간까지 계산</label>
+        <small className="field-help">시작 시간이 지나면 마감 시간 기준으로 자동 전환돼요.</small>
       </div>
       <div className="time-fields form-grid__full">
         <label className="label">시작<input className="field" name="starts_at" type="datetime-local" defaultValue={event ? toKstInputValue(event.starts_at) : defaultDate ? `${defaultDate}T09:00` : undefined} /></label>

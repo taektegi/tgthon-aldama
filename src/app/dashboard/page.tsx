@@ -7,9 +7,11 @@ import { AlertIcon, ArrowLeftIcon, CircleCheckIcon, MoreIcon, PlusIcon, Settings
 import type { Database } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { getUrgency } from "@/lib/urgency";
-import { getEventDdayBasis, getEventDdayLabel, getEventDdayTime, getEventUrgency } from "@/lib/event-time-basis";
+import { getEventDdayTarget, getEventDdayTime, getEventUrgency } from "@/lib/event-time-basis";
 import { buildDashboardReturnPath } from "@/lib/event-form";
 import { normalizeRange, splitSchedule } from "@/lib/schedule-sections";
+import { MAX_SPAN_LANES, assignSpanLanes, countsInBadge, getWeekSegments, isDueOn, isMultiDay, kstDay, occupiesDay } from "@/lib/calendar-span";
+import { getCountdownTarget, getDeadlineLabel, getRelativeDayLabel, isInProgress } from "@/lib/deadline-label";
 import { analyzeNoticeImage, completeAllOverdue, createEvent, deleteEvent, restoreLearnXOriginal, updateEvent } from "./actions";
 import { AppBadge } from "./AppBadge";
 import { ClipboardAnalyzeButton } from "./ClipboardAnalyzeButton";
@@ -29,25 +31,27 @@ import { EventFormFields } from "./EventFormFields";
  */
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
-type CalendarDayStatus = "overdue" | "due-soon" | "active" | "completed";
+type CalendarDayStatus = "overdue" | "today" | "due-soon" | "active" | "completed";
 
 const calendarDayStatusLabels: Record<CalendarDayStatus, string> = {
-  overdue: "기준 시간이 지난 일정 포함",
-  "due-soon": "기준 시간이 3일 이내인 일정 포함",
-  active: "진행 중 일정 있음",
+  overdue: "마감 초과 일정 포함",
+  today: "오늘 마감 일정 포함",
+  "due-soon": "3일 이내 마감 일정 포함",
+  active: "시작하는 일정 있음",
   completed: "모든 일정 완료",
 };
 
-function getCalendarDayStatus(events: EventRow[]): CalendarDayStatus {
+// 배지 색은 "마감이 얼마나 급한가"만 말한다. 시작만 있는 날은 급함이 아니므로 항상 active(파랑).
+// 그래야 캘린더를 훑을 때 "색이 진한 날 = 끝내야 하는 날"로 한 가지로 읽힌다.
+function getCalendarDayStatus(events: EventRow[], dayStr: string, todayStr: string): CalendarDayStatus {
   const activeEvents = events.filter((event) => !event.is_completed);
-  if (activeEvents.some((event) => getEventUrgency(event).level === "overdue")) return "overdue";
-  if (activeEvents.some((event) => ["urgent", "today", "soon"].includes(getEventUrgency(event).level))) return "due-soon";
-  if (activeEvents.length > 0) return "active";
-  return "completed";
+  if (activeEvents.length === 0) return "completed";
+  const dueHere = activeEvents.filter((event) => isDueOn(event, dayStr));
+  if (dueHere.some((event) => getUrgency(event.due_at).level === "overdue")) return "overdue";
+  if (dayStr === todayStr && dueHere.length > 0) return "today";
+  if (dueHere.some((event) => ["urgent", "soon"].includes(getUrgency(event.due_at).level))) return "due-soon";
+  return "active";
 }
-
-const kstDay = (iso: string) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date(iso));
-const eventCalendarTime = (event: { starts_at: string | null; due_at: string | null }) => event.starts_at ?? event.due_at;
 const formatKstDateTime = (iso: string) => new Intl.DateTimeFormat("ko-KR", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -122,11 +126,12 @@ function buildSyncedLabel(lastSyncedAt: string | null): string | null {
 }
 
 function getEventStatusLabel(event: EventRow, urgencyLevel: ReturnType<typeof getUrgency>["level"]) {
+  const targetBasis = getEventDdayTarget(event).basis;
   if (event.is_completed) return "완료";
-  if (urgencyLevel === "overdue") return getEventDdayBasis(event) === "starts_at" ? "시작 지남" : "마감 지남";
+  if (urgencyLevel === "overdue") return targetBasis === "starts_at" ? "시작 지남" : "마감 지남";
   if (["urgent", "today"].includes(urgencyLevel)) return "24시간 이내";
   if (urgencyLevel === "soon") return "마감 임박";
-  if (urgencyLevel === "none") return getEventDdayBasis(event) === "starts_at" ? "시작 없음" : "마감 없음";
+  if (urgencyLevel === "none") return targetBasis === "starts_at" ? "시작 없음" : "마감 없음";
   return "일반";
 }
 
@@ -172,18 +177,28 @@ function EventCard({
   const isCanvasEvent = Boolean(canvasSourceId && event.source_id === canvasSourceId && event.external_uid?.startsWith("canvas:"));
   const hasOverrides = isCanvasEvent && (event.override_fields?.length ?? 0) > 0;
   const statusLabel = getEventStatusLabel(event, urgency.level);
-  const bookmarkLabel = event.is_completed ? "완료" : getEventDdayLabel(event);
+  const bookmarkLabel = getDeadlineLabel(event);
+  const isOngoing = isInProgress(event);
+  const countdownTarget = getCountdownTarget(event) === "start" ? "시작까지" : "마감까지";
+  const bookmarkAriaLabel = event.is_completed ? "완료" : `${countdownTarget} ${bookmarkLabel}`;
 
   if (editId === event.id) return <EventEditor event={event} isCanvasEvent={isCanvasEvent} returnHref={returnHref} />;
 
   return (
     <article className={`event-card event-card--${urgency.level} ${event.is_completed ? "event-card--completed" : ""}`} role="listitem">
-      <span className="event-card__bookmark" aria-label={`D-day 표시 ${bookmarkLabel}`}>
-        {bookmarkLabel}
+      {/* 시작 기준 일정은 시작 전후에 기준이 바뀌므로 책갈피에 현재 기준을 함께 적는다. */}
+      <span className="event-card__bookmark" aria-label={bookmarkAriaLabel}>
+        {bookmarkLabel.startsWith("D") && (
+          <small className="event-card__bookmark-target" aria-hidden="true">{countdownTarget}</small>
+        )}
+        <strong className="event-card__bookmark-value" aria-hidden="true">{bookmarkLabel}</strong>
       </span>
       <div className="event-card__body">
         <h3>{event.title}</h3>
-        <span className={`event-card__status event-card__status--${urgency.level}`}>{statusLabel}</span>
+        <span className="event-card__labels">
+          {isOngoing && <span className="event-card__status event-card__status--ongoing">진행중</span>}
+          <span className={`event-card__status event-card__status--${urgency.level}`}>{statusLabel}</span>
+        </span>
         {event.subject && (
           <p className="event-card__subject">
             {event.subject}
@@ -269,12 +284,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     ? dateParam ?? (ym === todayStr.slice(0, 7) ? todayStr : null)
     : null;
   const eventFilterDate = view === "calendar" ? selectedCalendarDate : dateParam;
-  const visibleEvents = eventFilterDate
-    ? events.filter((event) => {
-        const calendarTime = eventCalendarTime(event);
-        return calendarTime !== null && kstDay(calendarTime) === eventFilterDate;
-      })
-    : events;
+  const dayEventsOf = (dayStr: string) => {
+    // 진행중(기간 일정)을 맨 위로. 그날 열려 있는 것부터 눈에 들어오게 한다
+    const matched = events.filter((event) => occupiesDay(event, dayStr));
+    const ongoing = matched.filter((event) => isInProgress(event));
+    return [...ongoing, ...matched.filter((event) => !ongoing.includes(event))];
+  };
+  const visibleEvents = eventFilterDate ? dayEventsOf(eventFilterDate) : events;
+  const ongoingCount = eventFilterDate
+    ? visibleEvents.filter((event) => isInProgress(event)).length
+    : 0;
 
   const { data: canvasSource } = await supabase
     .from("sources")
@@ -436,13 +455,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
         {!addMode && view === "calendar" && (() => {
           const { y, mo, cells } = monthGrid(ym);
-          const byDay: Record<string, EventRow[]> = {};
-          for (const event of events) {
-            const calendarTime = eventCalendarTime(event);
-            if (!calendarTime) continue;
-            const key = kstDay(calendarTime);
-            (byDay[key] ??= []).push(event);
-          }
+          // 달을 주 단위로 자른다. 띠는 여러 칸을 덮는 하나의 요소라서 주별로 그려야 한다
+          const padded: (number | null)[] = [...cells, ...Array((7 - (cells.length % 7)) % 7).fill(null)];
+          const weeks: (number | null)[][] = [];
+          for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
+          const dayStrOf = (day: number) => `${ym}-${String(day).padStart(2, "0")}`;
+
+          // 시작과 마감이 둘 다 있는 기간 일정만 띠로 그린다. 마감만 있는 일정은 배지로 남는다
+          const spanEvents = events.filter((event) => !event.is_completed && isMultiDay(event));
+          const spanLanes = assignSpanLanes(spanEvents);
           return (
             <section className="card calendar-card">
               <div className="calendar-card__header">
@@ -450,39 +471,83 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <strong>{y}년 {mo}월</strong>
                 <Link href={`/dashboard?view=calendar&m=${shiftMonth(ym, 1)}`} className="button button-muted icon-button" aria-label="다음 달">→</Link>
               </div>
-              <div className="calendar-grid">
+              <div className="calendar-weekdays">
                 {[
                   ["월", "월요일"], ["화", "화요일"], ["수", "수요일"], ["목", "목요일"], ["금", "금요일"], ["토", "토요일"], ["일", "일요일"],
                 ].map(([short, full]) => <div key={short} className="calendar-grid__weekday" aria-label={full}>{short}</div>)}
-                {cells.map((day, index) => {
-                  if (day === null) return <div key={`empty-${index}`} />;
-                  const dayStr = `${ym}-${String(day).padStart(2, "0")}`;
-                  const dayEvents = byDay[dayStr] ?? [];
-                  const isToday = dayStr === todayStr;
-                  const isSelected = dayStr === selectedCalendarDate;
-                  const href = `/dashboard?view=calendar&m=${ym}&date=${dayStr}`;
-                  const dayStatus = dayEvents.length > 0 ? getCalendarDayStatus(dayEvents) : null;
-                  return (
-                    <Link
-                      key={dayStr}
-                      href={href}
-                      className={`calendar-day ${isToday ? "calendar-day--today" : ""} ${isSelected ? "calendar-day--selected" : ""}`}
-                      aria-current={isSelected ? "page" : isToday ? "date" : undefined}
-                      aria-label={`${mo}월 ${day}일${isToday ? ", 오늘" : ""}${isSelected ? ", 선택됨" : ""}${dayEvents.length ? `, 일정 ${dayEvents.length}개, ${calendarDayStatusLabels[dayStatus!]}` : ", 일정 없음"}`}
-                    >
-                      <span className="calendar-day__number">{day}</span>
-                      {dayStatus && (
-                        <small className={`calendar-day__count calendar-day__count--${dayStatus}`} aria-hidden="true">
-                          {dayEvents.length > 9 ? "9+" : dayEvents.length}
-                        </small>
-                      )}
-                    </Link>
-                  );
-                })}
               </div>
+              {weeks.map((week, weekIndex) => {
+                const weekDays = week.map((day) => (day === null ? null : dayStrOf(day)));
+                const segments = getWeekSegments(spanEvents, spanLanes, weekDays);
+                const drawn = segments.filter((segment) => segment.lane < MAX_SPAN_LANES);
+                // 줄이 넘쳐 못 그린 기간은 칸마다 "+N"으로 알린다. 조용히 사라지면 안 된다
+                const hiddenPerColumn = Array(7).fill(0) as number[];
+                for (const segment of segments) {
+                  if (segment.lane < MAX_SPAN_LANES) continue;
+                  for (let col = segment.startCol; col < segment.startCol + segment.span; col += 1) hiddenPerColumn[col] += 1;
+                }
+                return (
+                  <div className="calendar-week" key={`week-${weekIndex}`}>
+                    <div className="calendar-week__days">
+                      {week.map((day, col) => {
+                        if (day === null) return <div key={`empty-${weekIndex}-${col}`} />;
+                        const dayStr = dayStrOf(day);
+                        const isToday = dayStr === todayStr;
+                        const isSelected = dayStr === selectedCalendarDate;
+                        const badgeEvents = events.filter((event) => countsInBadge(event, dayStr));
+                        const dayStatus = badgeEvents.length > 0 ? getCalendarDayStatus(badgeEvents, dayStr, todayStr) : null;
+                        const spanCount = segments.filter(
+                          (segment) => segment.startCol <= col && col < segment.startCol + segment.span,
+                        ).length;
+                        const spoken = badgeEvents.length > 0
+                          ? `, 일정 ${badgeEvents.length}개, ${calendarDayStatusLabels[dayStatus!]}`
+                          : spanCount > 0 ? `, 진행 기간 ${spanCount}개` : ", 일정 없음";
+                        return (
+                          <Link
+                            key={dayStr}
+                            href={`/dashboard?view=calendar&m=${ym}&date=${dayStr}`}
+                            className={`calendar-day ${isToday ? "calendar-day--today" : ""} ${isSelected ? "calendar-day--selected" : ""}`}
+                            aria-current={isSelected ? "page" : isToday ? "date" : undefined}
+                            aria-label={`${mo}월 ${day}일${isToday ? ", 오늘" : ""}${isSelected ? ", 선택됨" : ""}${spoken}`}
+                          >
+                            <span className="calendar-day__head">
+                              <span className="calendar-day__number">{day}</span>
+                              {dayStatus && (
+                                <small className={`calendar-day__count calendar-day__count--${dayStatus}`} aria-hidden="true">
+                                  {badgeEvents.length > 9 ? "9+" : badgeEvents.length}
+                                </small>
+                              )}
+                            </span>
+                            {hiddenPerColumn[col] > 0 && (
+                              <small className="calendar-day__more" aria-hidden="true">+{hiddenPerColumn[col]}</small>
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                    <div className="calendar-week__bars" aria-hidden="true">
+                      {drawn.map((segment) => {
+                        const event = spanEvents[segment.eventIndex];
+                        return (
+                          <span
+                            key={`${event.id}-${weekIndex}`}
+                            className={`calendar-span-bar ${isInProgress(event) ? "calendar-span-bar--ongoing" : ""} ${segment.opensHere ? "calendar-span-bar--opens" : ""} ${segment.closesHere ? "calendar-span-bar--closes" : ""}`}
+                            style={{ gridColumn: `${segment.startCol + 1} / span ${segment.span}`, gridRow: segment.lane + 1 }}
+                          >
+                            {event.title}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
               <div className="calendar-legend" aria-label="일정 상태 안내">
-                <span><i className="calendar-legend__dot calendar-legend__dot--overdue" aria-hidden="true" />기준 시간 지남</span>
-                <span><i className="calendar-legend__dot calendar-legend__dot--due-soon" aria-hidden="true" />기준 시간 3일 이내</span>
+                <span><i className="calendar-legend__dot calendar-legend__dot--overdue" aria-hidden="true" />마감 초과</span>
+                <span><i className="calendar-legend__dot calendar-legend__dot--today" aria-hidden="true" />오늘 마감</span>
+                <span><i className="calendar-legend__dot calendar-legend__dot--due-soon" aria-hidden="true" />3일 이내</span>
+                <span><i className="calendar-legend__bar calendar-legend__bar--ongoing" aria-hidden="true" />진행중</span>
+                <span><i className="calendar-legend__bar" aria-hidden="true" />예정 기간</span>
               </div>
             </section>
           );
@@ -491,8 +556,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         {!addMode && view === "calendar" && selectedCalendarDate && (
           <div className="selected-date selected-date--calendar">
             <div>
-              <strong>{formatKstDayLabel(selectedCalendarDate)}</strong>
-              <span>일정 {visibleEvents.length}개</span>
+              <strong>
+                {formatKstDayLabel(selectedCalendarDate)}
+                {/* D 표시는 항상 오늘 기준이라, 다른 날을 볼 때 기준점을 먼저 알려준다 */}
+                {getRelativeDayLabel(selectedCalendarDate) && (
+                  <span className="selected-date__relative"> · {getRelativeDayLabel(selectedCalendarDate)}</span>
+                )}
+              </strong>
+              <span>
+                {ongoingCount > 0 && <span className="selected-date__ongoing">진행중 {ongoingCount}개 · </span>}
+                일정 {visibleEvents.length}개
+              </span>
             </div>
             <Link href={`/dashboard?add=direct&date=${selectedCalendarDate}`} className="button button-muted calendar-add-button">
               <PlusIcon />

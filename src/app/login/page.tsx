@@ -8,7 +8,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <main className="page-shell page-shell--auth">
       <section className="card auth-card">
-        <Link href="/" className="back-link"><ArrowLeftIcon />알다마</Link>
+        <Link href="/" className="back-link"><ArrowLeftIcon />갈피</Link>
         <h1>로그인</h1>
         <p className="auth-card__intro">접속 정보를 입력해주세요.</p>
         {params.error && <StatusAlert tone="danger">{params.error}</StatusAlert>}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getEventDdayBasis, getEventDdayLabel, getEventDdayTime, getEventScheduleBucket, getEventUrgency } from "./event-time-basis";
+import { getEventDdayBasis, getEventDdayLabel, getEventDdayTarget, getEventDdayTime, getEventScheduleBucket, getEventUrgency } from "./event-time-basis";
 
 const NOW = new Date("2026-07-29T00:00:00.000Z");
 const event = {
@@ -16,9 +16,27 @@ describe("event D-day time basis", () => {
 
   it("시작 기준을 고르면 D-day와 긴급도 모두 시작 시간을 사용한다", () => {
     const startsBased = { ...event, d_day_basis: "starts_at" as const };
-    expect(getEventDdayTime(startsBased)).toBe(event.starts_at);
+    expect(getEventDdayTime(startsBased, NOW)).toBe(event.starts_at);
     expect(getEventDdayLabel(startsBased, NOW)).toBe("D-Day");
     expect(getEventUrgency(startsBased, NOW).level).toBe("urgent");
+  });
+
+  it("시작 기준 일정은 시작 시각부터 D-day, 색상, 구역 기준을 마감으로 함께 전환한다", () => {
+    const started = {
+      starts_at: "2026-07-28T12:00:00.000Z",
+      due_at: "2026-07-31T00:00:00.000Z",
+      d_day_basis: "starts_at" as const,
+    };
+
+    expect(getEventDdayTarget(started, NOW)).toEqual({ basis: "due_at", time: started.due_at });
+    expect(getEventDdayLabel(started, NOW)).toBe("D-2");
+    expect(getEventUrgency(started, NOW).level).toBe("soon");
+    expect(getEventScheduleBucket(started, NOW)).toBe("priority");
+  });
+
+  it("마감 기준 일정은 시작 전이어도 마감 기준을 유지한다", () => {
+    const dueBased = { ...event, d_day_basis: "due_at" as const };
+    expect(getEventDdayTarget(dueBased, NOW)).toEqual({ basis: "due_at", time: event.due_at });
   });
 
   it.each([
@@ -37,11 +55,10 @@ describe("event D-day time basis", () => {
   });
 
   it.each([
-    ["이미 지남", "2026-07-28T23:59:00.000Z", "overdue", "overdue"],
     ["24시간 이내", "2026-07-29T12:00:00.000Z", "urgent", "priority"],
     ["이틀 뒤", "2026-07-31T00:00:00.000Z", "soon", "priority"],
     ["나흘 뒤", "2026-08-02T00:00:00.000Z", "later", "upcoming"],
-  ])("%s 일정은 시작/마감 기준에서 같은 색상과 구역을 사용한다", (_label, referenceTime, urgency, bucket) => {
+  ])("%s 시작 전에는 시작/마감 기준에서 같은 색상과 구역을 사용한다", (_label, referenceTime, urgency, bucket) => {
     const startsBased = { starts_at: referenceTime, due_at: "2099-01-01T00:00:00.000Z", d_day_basis: "starts_at" as const };
     const dueBased = { starts_at: "2099-01-01T00:00:00.000Z", due_at: referenceTime, d_day_basis: "due_at" as const };
     expect(getEventUrgency(startsBased, NOW).level).toBe(urgency);
@@ -55,5 +72,19 @@ describe("event D-day time basis", () => {
     expect(getEventDdayTime(missingDue)).toBeNull();
     expect(getEventDdayLabel(missingDue, NOW)).toBe("—");
     expect(getEventUrgency(missingDue, NOW).level).toBe("none");
+
+    const missingStart = { starts_at: null, due_at: event.due_at, d_day_basis: "starts_at" as const };
+    expect(getEventDdayTarget(missingStart, NOW)).toEqual({ basis: "starts_at", time: null });
+  });
+
+  it("시작 후 마감이 없으면 마감 기준으로 전환하되 잘못된 D-day를 만들지 않는다", () => {
+    const noDueAfterStart = {
+      starts_at: "2026-07-28T12:00:00.000Z",
+      due_at: null,
+      d_day_basis: "starts_at" as const,
+    };
+    expect(getEventDdayTarget(noDueAfterStart, NOW)).toEqual({ basis: "due_at", time: null });
+    expect(getEventDdayLabel(noDueAfterStart, NOW)).toBe("—");
+    expect(getEventUrgency(noDueAfterStart, NOW).level).toBe("none");
   });
 });

@@ -32,7 +32,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     <>
       <main className="page-shell page-shell--narrow settings-page">
         <header className="page-header">
-          <div><p className="page-header__eyebrow">ALDAMA</p><h1>설정</h1></div>
+          <div><p className="page-header__eyebrow">갈피</p><h1>설정</h1></div>
         </header>
 
         {learnxError === "disconnect" && <StatusAlert tone="danger">연결을 해제하지 못했어요. 잠시 후 다시 시도해주세요.</StatusAlert>}

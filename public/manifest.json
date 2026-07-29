@@ -1,6 +1,6 @@
 {
-  "name": "알다마",
-  "short_name": "알다마",
+  "name": "갈피",
+  "short_name": "갈피",
   "description": "흩어진 대학 공지와 마감을 한눈에 정리하는 일정 카드 서비스",
   "start_url": "/dashboard",
   "scope": "/",

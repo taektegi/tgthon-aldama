@@ -12,9 +12,9 @@ export default async function HomePage() {
   return (
     <main className="page-shell landing-shell">
       <section className="landing-hero">
-        <p className="eyebrow">ALDAMA · 알다마</p>
+        <p className="eyebrow">갈피</p>
         <h1>
-          알다마에 오신 걸 환영해요
+          갈피에 오신 걸 환영해요
         </h1>
         <p className="landing-hero__description">
           공지 속에 숨은 마감을, 행동할 수 있는 카드로 바꿔드려요.
