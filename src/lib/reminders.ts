@@ -32,6 +32,6 @@ export function stageLabel(stage: number): string {
     case 2: return "⏰ 마감 6시간 전!";
     case 3: return "⏰ 마감 3시간 전!";
     case 4: return "🚨 마감 1시간 전!";
-    default: return "알다마 알림";
+    default: return "갈피 알림";
   }
 }
