@@ -3,9 +3,9 @@ import {
   MAX_SPAN_LANES,
   assignSpanLanes,
   getSpanRole,
-  countsInBadge,
-  isDueOn,
+  getWeekSegments,
   isMultiDay,
+  isSingleDayOn,
   kstDay,
   occupiesDay,
 } from "./calendar-span";
@@ -65,22 +65,19 @@ describe("occupiesDay", () => {
   });
 });
 
-describe("countsInBadge", () => {
-  it("기간 일정의 마감일만 배지에 센다 (시작일은 띠가 알려준다)", () => {
-    expect(countsInBadge(span, "2026-08-15")).toBe(true);
-    expect(countsInBadge(span, "2026-08-12")).toBe(false);
+describe("isSingleDayOn", () => {
+  it("하루로 끝나는 일정만 점을 찍는다", () => {
+    expect(isSingleDayOn(dueOnly, "2026-08-13")).toBe(true);
+    expect(isSingleDayOn(startOnly, "2026-08-13")).toBe(true);
+    expect(isSingleDayOn(sameDay, "2026-08-13")).toBe(true);
   });
-  it("중간 날은 세지 않는다", () => {
-    expect(countsInBadge(span, "2026-08-13")).toBe(false);
-    expect(countsInBadge(span, "2026-08-14")).toBe(false);
+  it("기간 일정은 어느 날에도 점을 찍지 않는다 (띠가 보여준다)", () => {
+    for (const day of ["2026-08-12", "2026-08-13", "2026-08-14", "2026-08-15"]) {
+      expect(isSingleDayOn(span, day)).toBe(false);
+    }
   });
-  it("하루짜리는 그날 센다", () => {
-    expect(countsInBadge(dueOnly, "2026-08-13")).toBe(true);
-    expect(countsInBadge(startOnly, "2026-08-13")).toBe(true);
-    expect(countsInBadge(sameDay, "2026-08-13")).toBe(true);
-  });
-  it("기간 밖이면 세지 않는다", () => {
-    expect(countsInBadge(span, "2026-08-16")).toBe(false);
+  it("날짜가 안 맞으면 false", () => {
+    expect(isSingleDayOn(dueOnly, "2026-08-14")).toBe(false);
   });
 });
 
@@ -143,13 +140,42 @@ describe("assignSpanLanes", () => {
   });
 });
 
-describe("isDueOn", () => {
-  it("마감되는 날만 true", () => {
-    expect(isDueOn(span, "2026-08-15")).toBe(true);
-    expect(isDueOn(span, "2026-08-12")).toBe(false);
-    expect(isDueOn(dueOnly, "2026-08-13")).toBe(true);
+describe("getWeekSegments", () => {
+  const weekOf = (days: (number | null)[]) =>
+    days.map((day) => (day === null ? null : `2026-07-${String(day).padStart(2, "0")}`));
+  const range = (start: string, due: string) => ({
+    starts_at: `${start}T09:00:00+09:00`,
+    due_at: `${due}T23:59:00+09:00`,
   });
-  it("마감이 없는 일정은 언제도 마감일이 아니다", () => {
-    expect(isDueOn(startOnly, "2026-08-13")).toBe(false);
+
+  // 7/9(목) ~ 7/18(토) 기간 일정. 6~12 주와 13~19 주에 걸친다
+  const trip = range("2026-07-09", "2026-07-18");
+
+  it("주가 넘어가면 조각이 갈라지고 이어지는 쪽은 열린 채로 남는다", () => {
+    const lanes = assignSpanLanes([trip]);
+    const first = getWeekSegments([trip], lanes, weekOf([6, 7, 8, 9, 10, 11, 12]))[0];
+    expect([first.startCol, first.span, first.opensHere, first.closesHere]).toEqual([3, 4, true, false]);
+
+    const second = getWeekSegments([trip], lanes, weekOf([13, 14, 15, 16, 17, 18, 19]))[0];
+    expect([second.startCol, second.span, second.opensHere, second.closesHere]).toEqual([0, 6, false, true]);
+  });
+
+  it("기간이 걸치지 않은 주는 조각이 없다", () => {
+    const lanes = assignSpanLanes([trip]);
+    expect(getWeekSegments([trip], lanes, weekOf([20, 21, 22, 23, 24, 25, 26]))).toHaveLength(0);
+  });
+
+  it("달 앞쪽 빈 칸은 건너뛴다", () => {
+    const early = range("2026-07-01", "2026-07-03");
+    const lanes = assignSpanLanes([early]);
+    const segment = getWeekSegments([early], lanes, weekOf([null, null, 1, 2, 3, 4, 5]))[0];
+    expect([segment.startCol, segment.span, segment.opensHere, segment.closesHere]).toEqual([2, 3, true, true]);
+  });
+
+  it("지난 달에 시작한 기간은 이 달 화면에서 왼쪽이 열린 채로 보인다", () => {
+    const crossMonth = { starts_at: "2026-06-30T09:00:00+09:00", due_at: "2026-07-02T23:59:00+09:00" };
+    const lanes = assignSpanLanes([crossMonth]);
+    const segment = getWeekSegments([crossMonth], lanes, weekOf([null, null, 1, 2, 3, 4, 5]))[0];
+    expect([segment.startCol, segment.span, segment.opensHere, segment.closesHere]).toEqual([2, 2, false, true]);
   });
 });

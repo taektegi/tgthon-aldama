@@ -394,7 +394,6 @@ textarea.field { resize: vertical; min-height: 116px; }
 .calendar-day:hover { background: var(--surface-soft); }
 .calendar-day--today { background: var(--primary-soft); color: var(--primary-deep); }
 .calendar-day--selected { border-color: var(--primary-deep); }
-.calendar-day__count { width: 20px; height: 20px; display: inline-grid; place-items: center; border-radius: 50%; color: var(--muted); font-size: 9px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
 .selected-date { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--space-4); }
 .selected-date strong { display: block; font-size: 18px; }
 
@@ -1502,13 +1501,6 @@ body:has(.dashboard-page) {
   color: #fff;
 }
 
-.dashboard-page .calendar-day__count {
-  width: 16px;
-  height: 16px;
-  font-size: 9px;
-  font-weight: 800;
-}
-
 /* 줄이 넘쳐 못 그린 기간 개수. 조용히 사라지지 않게 칸 오른쪽 아래에 남긴다 */
 .dashboard-page .calendar-day__more {
   position: absolute;
@@ -1519,30 +1511,39 @@ body:has(.dashboard-page) {
   font-weight: 800;
 }
 
-.dashboard-page .calendar-day__count--overdue {
-  background: var(--dw-overdue);
-  color: #fff;
+/* 유형 점. 숫자 대신 그 날 할 일의 종류를 알려준다.
+   숫자를 날짜 사이에 두면 가독성이 떨어졌고, 점은 개수와 종류를 한 번에 보여준다.
+   세로로 쌓아 칸 오른쪽 위에 붙인다 — 아래쪽은 기간 띠가 쓰는 자리다 */
+.dashboard-page .calendar-day__dots {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
 }
 
-.dashboard-page .calendar-day__count--today {
-  background: var(--dw-danger);
-  color: #fff;
+.dashboard-page .calendar-day__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
 }
 
-.dashboard-page .calendar-day__count--due-soon {
-  background: var(--dw-warning);
-  color: #5b4000;
+.dashboard-page .calendar-day__dots-more {
+  color: var(--dw-muted);
+  font-size: 8px;
+  font-weight: 800;
+  font-style: normal;
+  line-height: 1;
 }
 
-.dashboard-page .calendar-day__count--active {
-  background: var(--dw-info);
-  color: #0b4775;
-}
-
-.dashboard-page .calendar-day__count--completed {
-  border: 1px solid #c9ced3;
-  color: #6c747c;
-}
+.dashboard-page .calendar-day__dot--assignment { background: #26215c; }
+.dashboard-page .calendar-day__dot--exam { background: #185fa5; }
+.dashboard-page .calendar-day__dot--presentation { background: #63b3ff; }
+.dashboard-page .calendar-day__dot--application { background: #b5d4f4; }
+.dashboard-page .calendar-day__dot--event { background: #696c72; }
+/* 흰 점은 흰 칸에서 보이지 않으므로 테두리로 존재를 만든다 */
+.dashboard-page .calendar-day__dot--other { background: #fff; box-shadow: inset 0 0 0 1px #b8bdc3; }
 
 /* 기간 띠(시작과 마감이 둘 다 있는 일정).
    띠는 제목을 담아야 해서 여러 칸을 덮는 하나의 요소다. 그래서 날짜 칸 안에 넣을 수 없고,
@@ -1624,22 +1625,11 @@ body:has(.dashboard-page) {
   gap: 5px;
 }
 
+/* 범례의 점은 칸의 유형 점과 같은 색을 써야 하므로 색은 .calendar-day__dot--* 를 그대로 얹는다 */
 .dashboard-page .calendar-legend__dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-}
-
-.dashboard-page .calendar-legend__dot--overdue {
-  background: var(--dw-overdue);
-}
-
-.dashboard-page .calendar-legend__dot--today {
-  background: var(--dw-danger);
-}
-
-.dashboard-page .calendar-legend__dot--due-soon {
-  background: var(--dw-warning);
 }
 
 .dashboard-page .calendar-legend__bar {
