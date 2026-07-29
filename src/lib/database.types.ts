@@ -28,6 +28,7 @@ export type Database = {
           id: string; user_id: string; source_id: string | null; external_uid: string | null; title: string;
           subject: string | null;
           event_type: "assignment" | "exam" | "presentation" | "application" | "event" | "other";
+          d_day_basis: "due_at" | "starts_at";
           starts_at: string | null; due_at: string | null; is_all_day: boolean; location: string | null;
           original_text: string | null; source_url: string | null; confidence: number | null;
           is_completed: boolean; completed_at: string | null; reminder_stage: number;
@@ -38,6 +39,7 @@ export type Database = {
           id?: string; user_id: string; source_id?: string | null; external_uid?: string | null; title: string;
           subject?: string | null;
           event_type?: "assignment" | "exam" | "presentation" | "application" | "event" | "other";
+          d_day_basis?: "due_at" | "starts_at";
           starts_at?: string | null; due_at?: string | null; is_all_day?: boolean; location?: string | null;
           original_text?: string | null; source_url?: string | null; confidence?: number | null;
           is_completed?: boolean; completed_at?: string | null; reminder_stage?: number;

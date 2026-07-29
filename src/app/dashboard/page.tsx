@@ -7,8 +7,8 @@ import { AlertIcon, ArrowLeftIcon, CircleCheckIcon, MoreIcon, PlusIcon, Settings
 import type { Database } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { getUrgency } from "@/lib/urgency";
+import { getEventDdayBasis, getEventDdayLabel, getEventDdayTime, getEventUrgency } from "@/lib/event-time-basis";
 import { normalizeRange, splitSchedule } from "@/lib/schedule-sections";
-import { toKstInputValue } from "@/lib/datetime";
 import { analyzeNoticeImage, completeAllOverdue, createEvent, deleteEvent, restoreLearnXOriginal, updateEvent } from "./actions";
 import { AppBadge } from "./AppBadge";
 import { ClipboardAnalyzeButton } from "./ClipboardAnalyzeButton";
@@ -17,6 +17,7 @@ import { NotificationSetup } from "./NotificationSetup";
 import { SaveConfirm } from "./SaveConfirm";
 import { UpcomingRangeFilter } from "./UpcomingRangeFilter";
 import LearnXSync from "./LearnXSync";
+import { EventFormFields } from "./EventFormFields";
 
 /**
  * THESIS: /dashboard is a quiet wallet for deadlines, not a decorative planner.
@@ -30,16 +31,16 @@ type EventRow = Database["public"]["Tables"]["events"]["Row"];
 type CalendarDayStatus = "overdue" | "due-soon" | "active" | "completed";
 
 const calendarDayStatusLabels: Record<CalendarDayStatus, string> = {
-  overdue: "마감 초과 일정 포함",
-  "due-soon": "3일 이내 마감 일정 포함",
+  overdue: "기준 시간이 지난 일정 포함",
+  "due-soon": "기준 시간이 3일 이내인 일정 포함",
   active: "진행 중 일정 있음",
   completed: "모든 일정 완료",
 };
 
 function getCalendarDayStatus(events: EventRow[]): CalendarDayStatus {
   const activeEvents = events.filter((event) => !event.is_completed);
-  if (activeEvents.some((event) => getUrgency(event.due_at).level === "overdue")) return "overdue";
-  if (activeEvents.some((event) => ["urgent", "today", "soon"].includes(getUrgency(event.due_at).level))) return "due-soon";
+  if (activeEvents.some((event) => getEventUrgency(event).level === "overdue")) return "overdue";
+  if (activeEvents.some((event) => ["urgent", "today", "soon"].includes(getEventUrgency(event).level))) return "due-soon";
   if (activeEvents.length > 0) return "active";
   return "completed";
 }
@@ -74,16 +75,20 @@ function shiftMonth(ym: string, delta: number) {
 function buildHero(events: EventRow[]) {
   const now = Date.now();
   const active = events.filter((event) => !event.is_completed);
-  const overdueCount = active.filter((event) => event.due_at && new Date(event.due_at).getTime() < now).length;
+  const overdueCount = active.filter((event) => {
+    const referenceTime = getEventDdayTime(event);
+    return referenceTime && new Date(referenceTime).getTime() < now;
+  }).length;
   const urgentCount = active.filter((event) => {
-    if (!event.due_at) return false;
-    const remaining = new Date(event.due_at).getTime() - now;
+    const referenceTime = getEventDdayTime(event);
+    if (!referenceTime) return false;
+    const remaining = new Date(referenceTime).getTime() - now;
     return remaining >= 0 && remaining <= 24 * 60 * 60 * 1000;
   }).length;
 
   if (overdueCount > 0) {
     return {
-      heroMessage: `마감이 지난 일정이 ${overdueCount}개 있어요`,
+      heroMessage: `기준 시간이 지난 일정이 ${overdueCount}개 있어요`,
       heroDescription: "지금이라도 확인해볼까요?",
       badgeCount: urgentCount,
     };
@@ -115,34 +120,13 @@ function buildSyncedLabel(lastSyncedAt: string | null): string | null {
   return `LearningX · ${minutes}분 전 동기화`;
 }
 
-const typeLabels: Record<string, string> = {
-  assignment: "과제",
-  exam: "시험",
-  presentation: "발표",
-  application: "신청",
-  event: "행사",
-  other: "기타",
-};
-
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
-
 function getEventStatusLabel(event: EventRow, urgencyLevel: ReturnType<typeof getUrgency>["level"]) {
   if (event.is_completed) return "완료";
-  if (urgencyLevel === "overdue") return "마감 지남";
+  if (urgencyLevel === "overdue") return getEventDdayBasis(event) === "starts_at" ? "시작 지남" : "마감 지남";
   if (["urgent", "today"].includes(urgencyLevel)) return "24시간 이내";
   if (urgencyLevel === "soon") return "마감 임박";
-  if (urgencyLevel === "none") return "마감 없음";
+  if (urgencyLevel === "none") return getEventDdayBasis(event) === "starts_at" ? "시작 없음" : "마감 없음";
   return "일반";
-}
-
-function getDeadlineBookmarkLabel(event: EventRow) {
-  if (event.is_completed) return "완료";
-  if (!event.due_at) return "—";
-
-  const remaining = new Date(event.due_at).getTime() - Date.now();
-  if (remaining < 0) return `D+${Math.max(1, Math.ceil(Math.abs(remaining) / DAY_IN_MS))}`;
-  if (remaining <= DAY_IN_MS) return "D-1";
-  return `D-${Math.ceil(remaining / DAY_IN_MS)}`;
 }
 
 function EventEditor({ event, isCanvasEvent }: { event: EventRow; isCanvasEvent: boolean }) {
@@ -154,13 +138,7 @@ function EventEditor({ event, isCanvasEvent }: { event: EventRow; isCanvasEvent:
       </div>
       <form action={updateEvent} className="form-stack">
         <input type="hidden" name="id" value={event.id} />
-        <div className="form-grid">
-          <label className="label">과목(작업)<input className="field" name="subject" defaultValue={event.subject ?? ""} placeholder="예: 컴퓨터 프로그래밍" /></label>
-          <label className="label">제목<input className="field" name="title" defaultValue={event.title} required /></label>
-          <label className="label">유형<select className="field" name="event_type" defaultValue={event.event_type}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label className="label">시작<input className="field" name="starts_at" type="datetime-local" defaultValue={toKstInputValue(event.starts_at)} /></label>
-          <label className="label">마감<input className="field" name="due_at" type="datetime-local" defaultValue={toKstInputValue(event.due_at)} /></label>
-        </div>
+        <EventFormFields event={event} />
         <div className="form-actions">
           <button className="button button-primary">저장</button>
           <Link href="/dashboard" className="button button-muted">취소</Link>
@@ -182,17 +160,17 @@ function EventCard({
 }) {
   const urgency = event.is_completed
     ? { level: "none" as const, label: "완료", background: "#f3f4f6", color: "#58645f", fontWeight: 700 }
-    : getUrgency(event.due_at);
+    : getEventUrgency(event);
   const isCanvasEvent = Boolean(canvasSourceId && event.source_id === canvasSourceId && event.external_uid?.startsWith("canvas:"));
   const hasOverrides = isCanvasEvent && (event.override_fields?.length ?? 0) > 0;
   const statusLabel = getEventStatusLabel(event, urgency.level);
-  const bookmarkLabel = getDeadlineBookmarkLabel(event);
+  const bookmarkLabel = event.is_completed ? "완료" : getEventDdayLabel(event);
 
   if (editId === event.id) return <EventEditor event={event} isCanvasEvent={isCanvasEvent} />;
 
   return (
     <article className={`event-card event-card--${urgency.level} ${event.is_completed ? "event-card--completed" : ""}`} role="listitem">
-      <span className="event-card__bookmark" aria-label={`마감 표시 ${bookmarkLabel}`}>
+      <span className="event-card__bookmark" aria-label={`D-day 표시 ${bookmarkLabel}`}>
         {bookmarkLabel}
       </span>
       <div className="event-card__body">
@@ -268,8 +246,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { data: claimsData } = await supabase.auth.getClaims();
   if (!claimsData?.claims) redirect("/login");
 
-  const { data } = await supabase.from("events").select("*").eq("is_hidden", false).order("is_completed").order("due_at", { nullsFirst: false });
-  const events = data ?? [];
+  const { data } = await supabase.from("events").select("*").eq("is_hidden", false).order("is_completed");
+  const events = [...(data ?? [])].sort((left, right) => {
+    if (left.is_completed !== right.is_completed) return Number(left.is_completed) - Number(right.is_completed);
+    const leftTime = getEventDdayTime(left);
+    const rightTime = getEventDdayTime(right);
+    if (leftTime === null) return rightTime === null ? 0 : 1;
+    if (rightTime === null) return -1;
+    return Date.parse(leftTime) - Date.parse(rightTime);
+  });
   const selectedCalendarDate = view === "calendar"
     ? dateParam ?? (ym === todayStr.slice(0, 7) ? todayStr : null)
     : null;
@@ -424,13 +409,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <h2>직접 입력</h2>
             </div>
             <form action={createEvent} className="form-stack">
-              <div className="form-grid">
-                <label className="label">과목(작업)<input className="field" name="subject" placeholder="예: 컴퓨터 프로그래밍" /></label>
-                <label className="label">제목<input className="field" name="title" placeholder="예: 보고서 제출" required /></label>
-                <label className="label">유형<select className="field" name="event_type" defaultValue="assignment">{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-                <label className="label">시작<input className="field" name="starts_at" type="datetime-local" defaultValue={dateParam ? `${dateParam}T09:00` : undefined} /></label>
-                <label className="label">마감<input className="field" name="due_at" type="datetime-local" defaultValue={dateParam ? `${dateParam}T23:59` : undefined} required /></label>
-              </div>
+              <EventFormFields defaultDate={dateParam} />
               <button className="button button-primary button-block">일정 저장</button>
             </form>
           </section>
@@ -483,8 +462,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 })}
               </div>
               <div className="calendar-legend" aria-label="일정 상태 안내">
-                <span><i className="calendar-legend__dot calendar-legend__dot--overdue" aria-hidden="true" />마감 초과</span>
-                <span><i className="calendar-legend__dot calendar-legend__dot--due-soon" aria-hidden="true" />3일 이내</span>
+                <span><i className="calendar-legend__dot calendar-legend__dot--overdue" aria-hidden="true" />기준 시간 지남</span>
+                <span><i className="calendar-legend__dot calendar-legend__dot--due-soon" aria-hidden="true" />기준 시간 3일 이내</span>
               </div>
             </section>
           );

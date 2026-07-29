@@ -8,14 +8,8 @@ import { transcribeNoticeImage } from "@/lib/ai-parser";
 import { parseKstLocal } from "@/lib/datetime";
 import { canvasSyncErrorInfo, syncCanvasSource, type CanvasSyncErrorCode } from "@/lib/canvas/sync";
 import { OVERRIDABLE_FIELDS, type OverrideField } from "@/lib/canvas/mapping";
-
-const eventSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  subject: z.string().trim().max(100).optional().transform((value) => (value && value.length > 0 ? value : null)),
-  event_type: z.enum(["assignment", "exam", "presentation", "application", "event", "other"]),
-  starts_at: z.string().optional().transform((value) => (value && value.length > 0 ? value : null)),
-  due_at: z.string().min(1),
-});
+import { createEventInputSchema, updateEventInputSchema } from "@/lib/event-form";
+import { getEventDdayTime } from "@/lib/event-time-basis";
 
 async function authenticatedClient() {
   const supabase = await createClient();
@@ -26,7 +20,7 @@ async function authenticatedClient() {
 }
 
 export async function createEvent(formData: FormData) {
-  const parsed = eventSchema.safeParse(Object.fromEntries(formData));
+  const parsed = createEventInputSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return;
   const { supabase, userId } = await authenticatedClient();
   await supabase.from("events").insert({
@@ -34,8 +28,9 @@ export async function createEvent(formData: FormData) {
     title: parsed.data.title,
     subject: parsed.data.subject,
     event_type: parsed.data.event_type,
+    d_day_basis: parsed.data.use_start_time_for_d_day,
     starts_at: parsed.data.starts_at ? parseKstLocal(parsed.data.starts_at).toISOString() : null,
-    due_at: parseKstLocal(parsed.data.due_at).toISOString(),
+    due_at: parsed.data.due_at ? parseKstLocal(parsed.data.due_at).toISOString() : null,
   });
   revalidatePath("/dashboard");
   // 입력 화면에 남아서 저장 확인을 보여주고, 바로 다음 일정을 입력할 수 있게.
@@ -43,17 +38,8 @@ export async function createEvent(formData: FormData) {
   redirect(`/dashboard?add=direct&saved=${Date.now()}`);
 }
 
-const updateSchema = z.object({
-  id: z.uuid(),
-  title: z.string().trim().min(1).max(200),
-  subject: z.string().trim().max(100).optional().transform((value) => (value && value.length > 0 ? value : null)),
-  event_type: z.enum(["assignment", "exam", "presentation", "application", "event", "other"]),
-  starts_at: z.string().optional().transform((value) => (value && value.length > 0 ? value : null)),
-  due_at: z.string().optional().transform((value) => (value && value.length > 0 ? value : null)),
-});
-
 export async function updateEvent(formData: FormData) {
-  const parsed = updateSchema.safeParse(Object.fromEntries(formData));
+  const parsed = updateEventInputSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/dashboard");
   const { supabase } = await authenticatedClient();
   const { data: current, error } = await supabase
@@ -67,6 +53,7 @@ export async function updateEvent(formData: FormData) {
     title: parsed.data.title,
     subject: parsed.data.subject,
     event_type: parsed.data.event_type,
+    d_day_basis: parsed.data.use_start_time_for_d_day,
     starts_at: parsed.data.starts_at ? parseKstLocal(parsed.data.starts_at).toISOString() : null,
     due_at: parsed.data.due_at ? parseKstLocal(parsed.data.due_at).toISOString() : null,
   };
@@ -151,11 +138,20 @@ export async function toggleEvent(_previousState: ToggleEventState, formData: Fo
 export async function completeAllOverdue() {
   const { supabase } = await authenticatedClient();
   const now = new Date().toISOString();
+  const { data: activeEvents } = await supabase.from("events")
+    .select("id, starts_at, due_at, d_day_basis")
+    .eq("is_completed", false)
+    .eq("is_hidden", false);
+  const overdueIds = (activeEvents ?? [])
+    .filter((event) => {
+      const referenceTime = getEventDdayTime(event);
+      return referenceTime !== null && Date.parse(referenceTime) < Date.parse(now);
+    })
+    .map((event) => event.id);
+  if (overdueIds.length === 0) redirect("/dashboard");
   await supabase.from("events")
     .update({ is_completed: true, completed_at: now })
-    .eq("is_completed", false)
-    .eq("is_hidden", false)
-    .lt("due_at", now);
+    .in("id", overdueIds);
   revalidatePath("/dashboard");
   redirect("/dashboard"); // 패널을 닫은 상태로 돌아간다
 }
