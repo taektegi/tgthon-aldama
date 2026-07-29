@@ -7,10 +7,11 @@ import { AlertIcon, ArrowLeftIcon, CircleCheckIcon, MoreIcon, PlusIcon, Settings
 import type { Database } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { getUrgency } from "@/lib/urgency";
+import { getEventDdayTarget, getEventDdayTime, getEventUrgency } from "@/lib/event-time-basis";
+import { buildDashboardReturnPath } from "@/lib/event-form";
 import { normalizeRange, splitSchedule } from "@/lib/schedule-sections";
 import { MAX_SPAN_LANES, assignSpanLanes, countsInBadge, getWeekSegments, isDueOn, isMultiDay, kstDay, occupiesDay } from "@/lib/calendar-span";
 import { getCountdownTarget, getDeadlineLabel, getRelativeDayLabel, isInProgress } from "@/lib/deadline-label";
-import { toKstInputValue } from "@/lib/datetime";
 import { analyzeNoticeImage, completeAllOverdue, createEvent, deleteEvent, restoreLearnXOriginal, updateEvent } from "./actions";
 import { AppBadge } from "./AppBadge";
 import { ClipboardAnalyzeButton } from "./ClipboardAnalyzeButton";
@@ -19,6 +20,7 @@ import { NotificationSetup } from "./NotificationSetup";
 import { SaveConfirm } from "./SaveConfirm";
 import { UpcomingRangeFilter } from "./UpcomingRangeFilter";
 import LearnXSync from "./LearnXSync";
+import { EventFormFields } from "./EventFormFields";
 
 /**
  * THESIS: /dashboard is a quiet wallet for deadlines, not a decorative planner.
@@ -78,16 +80,20 @@ function shiftMonth(ym: string, delta: number) {
 function buildHero(events: EventRow[]) {
   const now = Date.now();
   const active = events.filter((event) => !event.is_completed);
-  const overdueCount = active.filter((event) => event.due_at && new Date(event.due_at).getTime() < now).length;
+  const overdueCount = active.filter((event) => {
+    const referenceTime = getEventDdayTime(event);
+    return referenceTime && new Date(referenceTime).getTime() < now;
+  }).length;
   const urgentCount = active.filter((event) => {
-    if (!event.due_at) return false;
-    const remaining = new Date(event.due_at).getTime() - now;
+    const referenceTime = getEventDdayTime(event);
+    if (!referenceTime) return false;
+    const remaining = new Date(referenceTime).getTime() - now;
     return remaining >= 0 && remaining <= 24 * 60 * 60 * 1000;
   }).length;
 
   if (overdueCount > 0) {
     return {
-      heroMessage: `마감이 지난 일정이 ${overdueCount}개 있어요`,
+      heroMessage: `기준 시간이 지난 일정이 ${overdueCount}개 있어요`,
       heroDescription: "지금이라도 확인해볼까요?",
       badgeCount: urgentCount,
     };
@@ -119,28 +125,21 @@ function buildSyncedLabel(lastSyncedAt: string | null): string | null {
   return `LearningX · ${minutes}분 전 동기화`;
 }
 
-const typeLabels: Record<string, string> = {
-  assignment: "과제",
-  exam: "시험",
-  presentation: "발표",
-  application: "신청",
-  event: "행사",
-  other: "기타",
-};
-
 function getEventStatusLabel(event: EventRow, urgencyLevel: ReturnType<typeof getUrgency>["level"]) {
+  const targetBasis = getEventDdayTarget(event).basis;
   if (event.is_completed) return "완료";
-  if (urgencyLevel === "overdue") return "마감 지남";
+  if (urgencyLevel === "overdue") return targetBasis === "starts_at" ? "시작 지남" : "마감 지남";
   if (["urgent", "today"].includes(urgencyLevel)) return "24시간 이내";
   if (urgencyLevel === "soon") return "마감 임박";
-  if (urgencyLevel === "none") return "마감 없음";
+  if (urgencyLevel === "none") return targetBasis === "starts_at" ? "시작 없음" : "마감 없음";
   return "일반";
 }
 
-// 책갈피 D 표시는 KST 달력 날짜 기준 (src/lib/deadline-label.ts).
-// 밀리초로 세면 오늘 밤 마감과 내일 아침 마감이 둘 다 D-1이 되어 구분이 안 됐다.
+function addEditToDashboardPath(returnHref: string, eventId: string): string {
+  return `${returnHref}${returnHref.includes("?") ? "&" : "?"}edit=${encodeURIComponent(eventId)}`;
+}
 
-function EventEditor({ event, isCanvasEvent }: { event: EventRow; isCanvasEvent: boolean }) {
+function EventEditor({ event, isCanvasEvent, returnHref }: { event: EventRow; isCanvasEvent: boolean; returnHref: string }) {
   return (
     <article className="event-card event-card--editing" role="listitem">
       <div className="event-card__edit-heading">
@@ -149,16 +148,11 @@ function EventEditor({ event, isCanvasEvent }: { event: EventRow; isCanvasEvent:
       </div>
       <form action={updateEvent} className="form-stack">
         <input type="hidden" name="id" value={event.id} />
-        <div className="form-grid">
-          <label className="label">과목(작업)<input className="field" name="subject" defaultValue={event.subject ?? ""} placeholder="예: 컴퓨터 프로그래밍" /></label>
-          <label className="label">제목<input className="field" name="title" defaultValue={event.title} required /></label>
-          <label className="label">유형<select className="field" name="event_type" defaultValue={event.event_type}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label className="label">시작<input className="field" name="starts_at" type="datetime-local" defaultValue={toKstInputValue(event.starts_at)} /></label>
-          <label className="label">마감<input className="field" name="due_at" type="datetime-local" defaultValue={toKstInputValue(event.due_at)} /></label>
-        </div>
+        <input type="hidden" name="return_to" value={returnHref} />
+        <EventFormFields event={event} />
         <div className="form-actions">
           <button className="button button-primary">저장</button>
-          <Link href="/dashboard" className="button button-muted">취소</Link>
+          <Link href={returnHref} className="button button-muted">취소</Link>
         </div>
         {isCanvasEvent && <p className="field-help">여기서 바꾼 값은 다음 LearningX 동기화에서도 유지됩니다.</p>}
       </form>
@@ -170,29 +164,30 @@ function EventCard({
   event,
   editId,
   canvasSourceId,
+  returnHref,
 }: {
   event: EventRow;
   editId?: string;
   canvasSourceId?: string;
+  returnHref: string;
 }) {
   const urgency = event.is_completed
     ? { level: "none" as const, label: "완료", background: "#f3f4f6", color: "#58645f", fontWeight: 700 }
-    : getUrgency(event.due_at);
+    : getEventUrgency(event);
   const isCanvasEvent = Boolean(canvasSourceId && event.source_id === canvasSourceId && event.external_uid?.startsWith("canvas:"));
   const hasOverrides = isCanvasEvent && (event.override_fields?.length ?? 0) > 0;
   const statusLabel = getEventStatusLabel(event, urgency.level);
   const bookmarkLabel = getDeadlineLabel(event);
-  // 시작 시각이 실제로 지났을 때만 "진행중". 시작 전이면 책갈피가 시작까지를 세고 있다
   const isOngoing = isInProgress(event);
   const countdownTarget = getCountdownTarget(event) === "start" ? "시작까지" : "마감까지";
+  const bookmarkAriaLabel = event.is_completed ? "완료" : `${countdownTarget} ${bookmarkLabel}`;
 
-  if (editId === event.id) return <EventEditor event={event} isCanvasEvent={isCanvasEvent} />;
+  if (editId === event.id) return <EventEditor event={event} isCanvasEvent={isCanvasEvent} returnHref={returnHref} />;
 
   return (
     <article className={`event-card event-card--${urgency.level} ${event.is_completed ? "event-card--completed" : ""}`} role="listitem">
-      {/* D 표시가 무엇까지 세는지 적어준다. 시작 전에는 시작까지, 시작 뒤에는 마감까지로
-          기준이 바뀌기 때문에 숫자만 있으면 D-day를 지나고 숫자가 커져 헷갈린다 */}
-      <span className="event-card__bookmark" aria-label={`${countdownTarget} ${bookmarkLabel}`}>
+      {/* 시작 기준 일정은 시작 전후에 기준이 바뀌므로 책갈피에 현재 기준을 함께 적는다. */}
+      <span className="event-card__bookmark" aria-label={bookmarkAriaLabel}>
         {bookmarkLabel.startsWith("D") && (
           <small className="event-card__bookmark-target" aria-hidden="true">{countdownTarget}</small>
         )}
@@ -221,7 +216,7 @@ function EventCard({
         <details className="action-menu">
           <summary aria-label={`${event.title} 작업 더보기`}><MoreIcon /></summary>
           <div className="action-menu__panel">
-            <Link href={`/dashboard?edit=${event.id}`} className="button button-muted">수정</Link>
+            <Link href={addEditToDashboardPath(returnHref, event.id)} className="button button-muted">수정</Link>
             {hasOverrides && (
               <form action={restoreLearnXOriginal}>
                 <input type="hidden" name="id" value={event.id} />
@@ -243,11 +238,13 @@ function EventList({
   events,
   editId,
   canvasSourceId,
+  returnHref,
   variant = "stack",
 }: {
   events: EventRow[];
   editId?: string;
   canvasSourceId?: string;
+  returnHref: string;
   variant?: "stack" | "carousel";
 }) {
   return (
@@ -257,7 +254,7 @@ function EventList({
       tabIndex={variant === "carousel" && events.length > 1 ? 0 : undefined}
       aria-label={variant === "carousel" ? `마감 임박 일정 ${events.length}개` : undefined}
     >
-      {events.map((event) => <EventCard key={event.id} event={event} editId={editId} canvasSourceId={canvasSourceId} />)}
+      {events.map((event) => <EventCard key={event.id} event={event} editId={editId} canvasSourceId={canvasSourceId} returnHref={returnHref} />)}
     </div>
   );
 }
@@ -274,8 +271,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { data: claimsData } = await supabase.auth.getClaims();
   if (!claimsData?.claims) redirect("/login");
 
-  const { data } = await supabase.from("events").select("*").eq("is_hidden", false).order("is_completed").order("due_at", { nullsFirst: false });
-  const events = data ?? [];
+  const { data } = await supabase.from("events").select("*").eq("is_hidden", false).order("is_completed");
+  const events = [...(data ?? [])].sort((left, right) => {
+    if (left.is_completed !== right.is_completed) return Number(left.is_completed) - Number(right.is_completed);
+    const leftTime = getEventDdayTime(left);
+    const rightTime = getEventDdayTime(right);
+    if (leftTime === null) return rightTime === null ? 0 : 1;
+    if (rightTime === null) return -1;
+    return Date.parse(leftTime) - Date.parse(rightTime);
+  });
   const selectedCalendarDate = view === "calendar"
     ? dateParam ?? (ym === todayStr.slice(0, 7) ? todayStr : null)
     : null;
@@ -302,6 +306,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const completedEvents = visibleEvents.filter((event) => event.is_completed);
   // 놓친 일정 패널: 히어로의 펼쳐보기를 눌렀거나, 놓친 일정을 수정하는 중이면 열어둔다
   const overdueOpen = overdueParam === "1" || Boolean(editId && overdueEvents.some((event) => event.id === editId));
+  const dashboardReturnHref = buildDashboardReturnPath(view === "calendar"
+    ? { view, month: ym, date: selectedCalendarDate ?? undefined }
+    : { view, range, date: dateParam, overdue: overdueParam === "1" });
 
   return (
     <div className={`dashboard-page dashboard-page--${view}${addMode ? " dashboard-page--add" : ""}${addMode === "choose" ? " dashboard-page--add-choose" : ""}`}>
@@ -330,6 +337,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           {canvasSource?.status === "error" && <StatusAlert tone="danger">LearningX 연결이 끊겼어요. <Link href="/connect/learnx" className="text-link">다시 연결하기</Link></StatusAlert>}
           {canvasSource?.status === "active" && canvasSource.last_sync_error && <StatusAlert tone="warning">최근 동기화가 일시적으로 실패했어요. 기존 일정은 유지됩니다.</StatusAlert>}
         </div>}
+
+        {!addMode && view === "calendar" && saved === "1" && (
+          <div className="dashboard-alerts">
+            <StatusAlert tone="success">일정이 저장되었습니다!</StatusAlert>
+          </div>
+        )}
 
         {/* 놓친 일정이 있으면 경고 배너, 없으면 칭찬 배너 */}
         {!addMode && view === "list" && (overdueEvents.length > 0 ? (
@@ -365,7 +378,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <button type="submit" className="button button-muted overdue-complete-all">전체 완료</button>
               </form>
             </div>
-            <EventList events={overdueEvents} editId={editId} canvasSourceId={canvasSource?.id} />
+            <EventList events={overdueEvents} editId={editId} canvasSourceId={canvasSource?.id} returnHref={dashboardReturnHref} />
           </section>
         )}
 
@@ -434,13 +447,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <h2>직접 입력</h2>
             </div>
             <form action={createEvent} className="form-stack">
-              <div className="form-grid">
-                <label className="label">과목(작업)<input className="field" name="subject" placeholder="예: 컴퓨터 프로그래밍" /></label>
-                <label className="label">제목<input className="field" name="title" placeholder="예: 보고서 제출" required /></label>
-                <label className="label">유형<select className="field" name="event_type" defaultValue="assignment">{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-                <label className="label">시작<input className="field" name="starts_at" type="datetime-local" defaultValue={dateParam ? `${dateParam}T09:00` : undefined} /></label>
-                <label className="label">마감<input className="field" name="due_at" type="datetime-local" defaultValue={dateParam ? `${dateParam}T23:59` : undefined} required /></label>
-              </div>
+              <EventFormFields defaultDate={dateParam} />
               <button className="button button-primary button-block">일정 저장</button>
             </form>
           </section>
@@ -592,7 +599,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 </Link>
               </div>
             ) : (
-              <EventList events={visibleEvents} editId={editId} canvasSourceId={canvasSource?.id} />
+              <EventList events={visibleEvents} editId={editId} canvasSourceId={canvasSource?.id} returnHref={dashboardReturnHref} />
             )}
           </section>
         )}
@@ -612,7 +619,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <h2 id="priority-heading">마감 임박</h2>
                 <span className="count-badge">{priorityEvents.length}</span>
               </div>
-              <EventList events={priorityEvents} editId={editId} canvasSourceId={canvasSource?.id} variant="carousel" />
+              <EventList events={priorityEvents} editId={editId} canvasSourceId={canvasSource?.id} returnHref={dashboardReturnHref} variant="carousel" />
             </section>
           )}
 
@@ -623,7 +630,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <UpcomingRangeFilter selected={range} />
               </div>
               {upcomingEvents.length > 0
-                ? <EventList events={upcomingEvents} editId={editId} canvasSourceId={canvasSource?.id} />
+                ? <EventList events={upcomingEvents} editId={editId} canvasSourceId={canvasSource?.id} returnHref={dashboardReturnHref} />
                 : <p className="upcoming-empty">이 기간에는 일정이 없어요. 기간을 늘려보세요.</p>}
             </section>
           )}
@@ -631,7 +638,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           {completedEvents.length > 0 && (
             <details className="completed-section" open={Boolean(editId && completedEvents.some((event) => event.id === editId))}>
               <summary><span>완료한 일정</span><span className="count-badge">{completedEvents.length}</span></summary>
-              <EventList events={completedEvents} editId={editId} canvasSourceId={canvasSource?.id} />
+              <EventList events={completedEvents} editId={editId} canvasSourceId={canvasSource?.id} returnHref={dashboardReturnHref} />
             </details>
           )}
         </div>}
