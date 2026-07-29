@@ -11,6 +11,7 @@ import { getEventDdayTarget, getEventDdayTime, getEventUrgency } from "@/lib/eve
 import { buildDashboardReturnPath } from "@/lib/event-form";
 import { normalizeRange, splitSchedule } from "@/lib/schedule-sections";
 import { MAX_SPAN_LANES, assignSpanLanes, getWeekSegments, isMultiDay, isSingleDayOn, kstDay, occupiesDay } from "@/lib/calendar-span";
+import { EVENT_TYPES, EVENT_TYPE_LABELS, eventTypeDotClass, eventTypeLabel } from "@/lib/event-type";
 import { getCountdownTarget, getDeadlineLabel, getRelativeDayLabel, isInProgress } from "@/lib/deadline-label";
 import { analyzeNoticeImage, completeAllOverdue, createEvent, deleteEvent, restoreLearnXOriginal, updateEvent } from "./actions";
 import { AppBadge } from "./AppBadge";
@@ -161,17 +162,25 @@ function EventCard({
   const statusLabel = getEventStatusLabel(event, urgency.level);
   const bookmarkLabel = getDeadlineLabel(event);
   const isOngoing = isInProgress(event);
-  const countdownTarget = getCountdownTarget(event) === "start" ? "시작까지" : "마감까지";
-  const bookmarkAriaLabel = event.is_completed ? "완료" : `${countdownTarget} ${bookmarkLabel}`;
+  // 마감까지는 기본이라 굳이 적지 않는다. 시작 기준일 때만 "시작까지"를 붙여
+  // D-day를 지나며 숫자가 커지는 이유를 알려준다
+  const countsToStart = getCountdownTarget(event) === "start";
+  const showCountdownTarget = countsToStart && bookmarkLabel.startsWith("D");
+  const bookmarkAriaLabel = event.is_completed
+    ? "완료"
+    : `${countsToStart ? "시작까지" : "마감까지"} ${bookmarkLabel}`;
 
   if (editId === event.id) return <EventEditor event={event} isCanvasEvent={isCanvasEvent} returnHref={returnHref} />;
 
   return (
     <article className={`event-card event-card--${urgency.level} ${event.is_completed ? "event-card--completed" : ""}`} role="listitem">
-      {/* 시작 기준 일정은 시작 전후에 기준이 바뀌므로 책갈피에 현재 기준을 함께 적는다. */}
-      <span className="event-card__bookmark" aria-label={bookmarkAriaLabel}>
-        {bookmarkLabel.startsWith("D") && (
-          <small className="event-card__bookmark-target" aria-hidden="true">{countdownTarget}</small>
+      {/* 시작 기준 일정은 시작 전후에 세는 대상이 바뀌므로 그때만 기준을 함께 적는다. */}
+      <span
+        className={`event-card__bookmark ${showCountdownTarget ? "event-card__bookmark--with-target" : ""}`}
+        aria-label={bookmarkAriaLabel}
+      >
+        {showCountdownTarget && (
+          <small className="event-card__bookmark-target" aria-hidden="true">시작까지</small>
         )}
         <strong className="event-card__bookmark-value" aria-hidden="true">{bookmarkLabel}</strong>
       </span>
@@ -484,7 +493,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                           (segment) => segment.startCol <= col && col < segment.startCol + segment.span,
                         ).length;
                         const spokenTypes = dotEvents.length > 0
-                          ? `, ${dotEvents.map((event) => typeLabels[event.event_type] ?? "기타").join(" ")} ${dotEvents.length}개`
+                          ? `, ${dotEvents.map((event) => eventTypeLabel(event.event_type)).join(" ")} ${dotEvents.length}개`
                           : "";
                         const spoken = dotEvents.length === 0 && spanCount === 0
                           ? ", 일정 없음"
@@ -503,7 +512,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                             {shownDots.length > 0 && (
                               <span className="calendar-day__dots" aria-hidden="true">
                                 {shownDots.map((event) => (
-                                  <i key={event.id} className={`calendar-day__dot calendar-day__dot--${event.event_type}`} />
+                                  <i key={event.id} className={`calendar-day__dot ${eventTypeDotClass(event.event_type)}`} />
                                 ))}
                                 {hiddenDots > 0 && <em className="calendar-day__dots-more">+{hiddenDots}</em>}
                               </span>
@@ -533,14 +542,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 );
               })}
               <div className="calendar-legend" aria-label="일정 상태 안내">
-                {Object.entries(typeLabels).map(([type, label]) => (
+                {EVENT_TYPES.map((type) => (
                   <span key={type}>
-                    <i className={`calendar-legend__dot calendar-day__dot--${type}`} aria-hidden="true" />
-                    {label}
+                    <i className={`calendar-legend__dot ${eventTypeDotClass(type)}`} aria-hidden="true" />
+                    {EVENT_TYPE_LABELS[type]}
                   </span>
                 ))}
-                <span><i className="calendar-legend__bar calendar-legend__bar--ongoing" aria-hidden="true" />진행중</span>
-                <span><i className="calendar-legend__bar" aria-hidden="true" />예정 기간</span>
               </div>
             </section>
           );

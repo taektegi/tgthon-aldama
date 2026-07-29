@@ -5,16 +5,8 @@ import { EmptyState } from "@/app/components/States";
 import { createClient } from "@/lib/supabase/server";
 import { parseNotice } from "@/lib/ai-parser";
 import { toKstInputValue } from "@/lib/datetime";
+import { EVENT_TYPE_LABELS } from "@/lib/event-type";
 import { saveSharedCandidates } from "./actions";
-
-const typeLabels: Record<string, string> = {
-  assignment: "과제",
-  exam: "시험",
-  presentation: "발표",
-  application: "신청",
-  event: "행사",
-  other: "기타",
-};
 
 export default async function SharePage({ searchParams }: { searchParams: Promise<{ title?: string; text?: string; url?: string }> }) {
   const params = await searchParams;
@@ -61,7 +53,7 @@ export default async function SharePage({ searchParams }: { searchParams: Promis
                 <input type="hidden" name={`confidence_${index}`} value={candidate.confidence} />
                 <div className="candidate-card__fields">
                   <label className="label">제목<input className="field" name={`title_${index}`} defaultValue={candidate.title} required /></label>
-                  <label className="label">유형<select className="field" name={`event_type_${index}`} defaultValue={candidate.eventType}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                  <label className="label">유형<select className="field" name={`event_type_${index}`} defaultValue={candidate.eventType}>{Object.entries(EVENT_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
                   <label className="label">시작<span className="field-help">{candidate.startsAt ? "분석된 시각을 확인해주세요." : "행사·회의처럼 열리는 일이면 시작만 채워도 돼요."}</span><input className="field" name={`starts_at_${index}`} type="datetime-local" defaultValue={candidate.startsAt ? toKstInputValue(candidate.startsAt) : ""} /></label>
                   <label className="label">마감<span className="field-help">{candidate.dueAt ? "분석된 날짜를 확인해주세요." : "과제·신청처럼 마감이 있는 일이면 마감만 채워도 돼요."}</span><input className="field" name={`due_at_${index}`} type="datetime-local" defaultValue={candidate.dueAt ? toKstInputValue(candidate.dueAt) : ""} /></label>
                 </div>

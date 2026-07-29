@@ -1030,7 +1030,8 @@ body:has(.dashboard-page) {
   place-items: start center;
   align-content: start;
   gap: 3px;
-  padding-top: 17px;
+  /* 한 줄(D 표시만)일 때 기준. 두 줄이 되면 --with-target이 위로 끌어올린다 */
+  padding-top: 26px;
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
   background: var(--dw-info);
   color: #fff;
@@ -1042,7 +1043,12 @@ body:has(.dashboard-page) {
   text-shadow: 0 1px 2px rgb(0 0 0 / 12%);
 }
 
-/* "시작까지 / D-2" 두 줄. 위 줄은 기준을 알려주는 안내라 작고 옅게 둔다 */
+/* "시작까지 / D-2" 두 줄일 때만 위로 끌어올린다 */
+.dashboard-page .event-card__bookmark--with-target {
+  padding-top: 17px;
+}
+
+/* 위 줄은 기준을 알려주는 안내라 작고 옅게 둔다 */
 .dashboard-page .event-card__bookmark-target {
   font-size: 10px;
   font-weight: 800;
@@ -1641,15 +1647,6 @@ body:has(.dashboard-page) {
   border-radius: 50%;
 }
 
-.dashboard-page .calendar-legend__bar {
-  width: 14px;
-  height: 8px;
-  border-radius: 3px;
-  background: var(--dw-span-soft);
-}
-
-.dashboard-page .calendar-legend__bar--ongoing { background: var(--dw-span-live); }
-
 .dashboard-page .selected-date--calendar {
   min-height: 70px;
   margin: 0 2px 14px;
@@ -2087,8 +2084,12 @@ body:has(.dashboard-page) {
 
   .dashboard-page .event-card__bookmark {
     gap: 2px;
-    padding-top: 15px;
+    padding-top: 23px;
     font-size: 18px;
+  }
+
+  .dashboard-page .event-card__bookmark--with-target {
+    padding-top: 15px;
   }
 
   .dashboard-page .event-card__bookmark-target {
