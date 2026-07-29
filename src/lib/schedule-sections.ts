@@ -4,7 +4,9 @@
 // - 다가오는 일정: 그 뒤의 것 중 선택한 기간(1주/2주/1달/전체) 안의 것.
 //   선택한 기준 시각이 없는 일정은 날짜로 거를 수 없으니 항상 다가오는 일정에 보여준다.
 
-import { getEventDdayTime, type EventWithTimeBasis } from "./event-time-basis";
+import { getEventDdayTime, getEventScheduleBucket, kstDayDiff, type EventWithTimeBasis } from "./event-time-basis";
+
+export { kstDayDiff } from "./event-time-basis";
 
 export const UPCOMING_RANGES = [
   { value: "7", label: "1주" },
@@ -22,17 +24,6 @@ export function normalizeRange(value: string | undefined): UpcomingRange {
     : "7";
 }
 
-const kstDayString = (date: Date) =>
-  new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(date);
-
-/** KST 달력 기준 날짜 차이. 0=당일, 1=내일(D-1), 2=모레(D-2), 과거면 음수 */
-export function kstDayDiff(iso: string, now: Date = new Date()): number {
-  const MS_PER_DAY = 24 * 60 * 60 * 1000;
-  const target = Date.parse(`${kstDayString(new Date(iso))}T00:00:00Z`);
-  const today = Date.parse(`${kstDayString(now)}T00:00:00Z`);
-  return Math.round((target - today) / MS_PER_DAY);
-}
-
 type Sectionable = EventWithTimeBasis & { is_completed: boolean };
 
 export function splitSchedule<T extends Sectionable>(
@@ -41,19 +32,9 @@ export function splitSchedule<T extends Sectionable>(
   now: Date = new Date(),
 ) {
   const active = events.filter((event) => !event.is_completed);
-  const overdue = active.filter(
-    (event) => {
-      const referenceTime = getEventDdayTime(event);
-      return referenceTime !== null && new Date(referenceTime).getTime() < now.getTime();
-    },
-  );
+  const overdue = active.filter((event) => getEventScheduleBucket(event, now) === "overdue");
   const future = active.filter((event) => !overdue.includes(event));
-  const priority = future.filter(
-    (event) => {
-      const referenceTime = getEventDdayTime(event);
-      return referenceTime !== null && kstDayDiff(referenceTime, now) <= 2;
-    },
-  );
+  const priority = future.filter((event) => getEventScheduleBucket(event, now) === "priority");
   const rest = future.filter((event) => !priority.includes(event));
   const limit = range === "all" ? Infinity : Number(range);
   const upcoming = rest.filter(

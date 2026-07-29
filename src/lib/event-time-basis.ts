@@ -9,7 +9,18 @@ export type EventWithTimeBasis = {
   d_day_basis?: EventDdayBasis | null;
 };
 
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
+export type EventScheduleBucket = "overdue" | "priority" | "upcoming";
+
+const kstDayString = (date: Date) =>
+  new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(date);
+
+/** KST 달력 기준 날짜 차이. 0=당일, 1=내일(D-1), 2=모레(D-2), 과거면 음수. */
+export function kstDayDiff(iso: string, now: Date = new Date()): number {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const target = Date.parse(`${kstDayString(new Date(iso))}T00:00:00Z`);
+  const today = Date.parse(`${kstDayString(now)}T00:00:00Z`);
+  return Math.round((target - today) / msPerDay);
+}
 
 /** 과거 데이터나 알 수 없는 값은 기존 동작인 마감 시간 기준으로 해석한다. */
 export function getEventDdayBasis(event: EventWithTimeBasis): EventDdayBasis {
@@ -26,12 +37,23 @@ export function getEventUrgency(event: EventWithTimeBasis, now: Date = new Date(
   return getUrgency(getEventDdayTime(event), now);
 }
 
+/** 시작/마감 중 선택한 동일 기준 시간으로 목록 구역까지 결정한다. */
+export function getEventScheduleBucket(
+  event: EventWithTimeBasis,
+  now: Date = new Date(),
+): EventScheduleBucket {
+  const referenceTime = getEventDdayTime(event);
+  if (!referenceTime) return "upcoming";
+  if (Date.parse(referenceTime) < now.getTime()) return "overdue";
+  return kstDayDiff(referenceTime, now) <= 2 ? "priority" : "upcoming";
+}
+
 export function getEventDdayLabel(event: EventWithTimeBasis, now: Date = new Date()): string {
   const referenceTime = getEventDdayTime(event);
   if (!referenceTime) return "—";
 
-  const remaining = new Date(referenceTime).getTime() - now.getTime();
-  if (remaining < 0) return `D+${Math.max(1, Math.ceil(Math.abs(remaining) / DAY_IN_MS))}`;
-  if (remaining <= DAY_IN_MS) return "D-1";
-  return `D-${Math.ceil(remaining / DAY_IN_MS)}`;
+  const dayDiff = kstDayDiff(referenceTime, now);
+  if (dayDiff < 0) return `D+${Math.abs(dayDiff)}`;
+  if (dayDiff === 0) return "D-Day";
+  return `D-${dayDiff}`;
 }

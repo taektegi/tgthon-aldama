@@ -8,6 +8,7 @@ import type { Database } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { getUrgency } from "@/lib/urgency";
 import { getEventDdayBasis, getEventDdayLabel, getEventDdayTime, getEventUrgency } from "@/lib/event-time-basis";
+import { buildDashboardReturnPath } from "@/lib/event-form";
 import { normalizeRange, splitSchedule } from "@/lib/schedule-sections";
 import { analyzeNoticeImage, completeAllOverdue, createEvent, deleteEvent, restoreLearnXOriginal, updateEvent } from "./actions";
 import { AppBadge } from "./AppBadge";
@@ -129,7 +130,11 @@ function getEventStatusLabel(event: EventRow, urgencyLevel: ReturnType<typeof ge
   return "일반";
 }
 
-function EventEditor({ event, isCanvasEvent }: { event: EventRow; isCanvasEvent: boolean }) {
+function addEditToDashboardPath(returnHref: string, eventId: string): string {
+  return `${returnHref}${returnHref.includes("?") ? "&" : "?"}edit=${encodeURIComponent(eventId)}`;
+}
+
+function EventEditor({ event, isCanvasEvent, returnHref }: { event: EventRow; isCanvasEvent: boolean; returnHref: string }) {
   return (
     <article className="event-card event-card--editing" role="listitem">
       <div className="event-card__edit-heading">
@@ -138,10 +143,11 @@ function EventEditor({ event, isCanvasEvent }: { event: EventRow; isCanvasEvent:
       </div>
       <form action={updateEvent} className="form-stack">
         <input type="hidden" name="id" value={event.id} />
+        <input type="hidden" name="return_to" value={returnHref} />
         <EventFormFields event={event} />
         <div className="form-actions">
           <button className="button button-primary">저장</button>
-          <Link href="/dashboard" className="button button-muted">취소</Link>
+          <Link href={returnHref} className="button button-muted">취소</Link>
         </div>
         {isCanvasEvent && <p className="field-help">여기서 바꾼 값은 다음 LearningX 동기화에서도 유지됩니다.</p>}
       </form>
@@ -153,10 +159,12 @@ function EventCard({
   event,
   editId,
   canvasSourceId,
+  returnHref,
 }: {
   event: EventRow;
   editId?: string;
   canvasSourceId?: string;
+  returnHref: string;
 }) {
   const urgency = event.is_completed
     ? { level: "none" as const, label: "완료", background: "#f3f4f6", color: "#58645f", fontWeight: 700 }
@@ -166,7 +174,7 @@ function EventCard({
   const statusLabel = getEventStatusLabel(event, urgency.level);
   const bookmarkLabel = event.is_completed ? "완료" : getEventDdayLabel(event);
 
-  if (editId === event.id) return <EventEditor event={event} isCanvasEvent={isCanvasEvent} />;
+  if (editId === event.id) return <EventEditor event={event} isCanvasEvent={isCanvasEvent} returnHref={returnHref} />;
 
   return (
     <article className={`event-card event-card--${urgency.level} ${event.is_completed ? "event-card--completed" : ""}`} role="listitem">
@@ -193,7 +201,7 @@ function EventCard({
         <details className="action-menu">
           <summary aria-label={`${event.title} 작업 더보기`}><MoreIcon /></summary>
           <div className="action-menu__panel">
-            <Link href={`/dashboard?edit=${event.id}`} className="button button-muted">수정</Link>
+            <Link href={addEditToDashboardPath(returnHref, event.id)} className="button button-muted">수정</Link>
             {hasOverrides && (
               <form action={restoreLearnXOriginal}>
                 <input type="hidden" name="id" value={event.id} />
@@ -215,11 +223,13 @@ function EventList({
   events,
   editId,
   canvasSourceId,
+  returnHref,
   variant = "stack",
 }: {
   events: EventRow[];
   editId?: string;
   canvasSourceId?: string;
+  returnHref: string;
   variant?: "stack" | "carousel";
 }) {
   return (
@@ -229,7 +239,7 @@ function EventList({
       tabIndex={variant === "carousel" && events.length > 1 ? 0 : undefined}
       aria-label={variant === "carousel" ? `마감 임박 일정 ${events.length}개` : undefined}
     >
-      {events.map((event) => <EventCard key={event.id} event={event} editId={editId} canvasSourceId={canvasSourceId} />)}
+      {events.map((event) => <EventCard key={event.id} event={event} editId={editId} canvasSourceId={canvasSourceId} returnHref={returnHref} />)}
     </div>
   );
 }
@@ -277,6 +287,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const completedEvents = visibleEvents.filter((event) => event.is_completed);
   // 놓친 일정 패널: 히어로의 펼쳐보기를 눌렀거나, 놓친 일정을 수정하는 중이면 열어둔다
   const overdueOpen = overdueParam === "1" || Boolean(editId && overdueEvents.some((event) => event.id === editId));
+  const dashboardReturnHref = buildDashboardReturnPath(view === "calendar"
+    ? { view, month: ym, date: selectedCalendarDate ?? undefined }
+    : { view, range, date: dateParam, overdue: overdueParam === "1" });
 
   return (
     <div className={`dashboard-page dashboard-page--${view}${addMode ? " dashboard-page--add" : ""}${addMode === "choose" ? " dashboard-page--add-choose" : ""}`}>
@@ -305,6 +318,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           {canvasSource?.status === "error" && <StatusAlert tone="danger">LearningX 연결이 끊겼어요. <Link href="/connect/learnx" className="text-link">다시 연결하기</Link></StatusAlert>}
           {canvasSource?.status === "active" && canvasSource.last_sync_error && <StatusAlert tone="warning">최근 동기화가 일시적으로 실패했어요. 기존 일정은 유지됩니다.</StatusAlert>}
         </div>}
+
+        {!addMode && view === "calendar" && saved === "1" && (
+          <div className="dashboard-alerts">
+            <StatusAlert tone="success">일정이 저장되었습니다!</StatusAlert>
+          </div>
+        )}
 
         {/* 놓친 일정이 있으면 경고 배너, 없으면 칭찬 배너 */}
         {!addMode && view === "list" && (overdueEvents.length > 0 ? (
@@ -340,7 +359,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <button type="submit" className="button button-muted overdue-complete-all">전체 완료</button>
               </form>
             </div>
-            <EventList events={overdueEvents} editId={editId} canvasSourceId={canvasSource?.id} />
+            <EventList events={overdueEvents} editId={editId} canvasSourceId={canvasSource?.id} returnHref={dashboardReturnHref} />
           </section>
         )}
 
@@ -506,7 +525,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 </Link>
               </div>
             ) : (
-              <EventList events={visibleEvents} editId={editId} canvasSourceId={canvasSource?.id} />
+              <EventList events={visibleEvents} editId={editId} canvasSourceId={canvasSource?.id} returnHref={dashboardReturnHref} />
             )}
           </section>
         )}
@@ -526,7 +545,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <h2 id="priority-heading">마감 임박</h2>
                 <span className="count-badge">{priorityEvents.length}</span>
               </div>
-              <EventList events={priorityEvents} editId={editId} canvasSourceId={canvasSource?.id} variant="carousel" />
+              <EventList events={priorityEvents} editId={editId} canvasSourceId={canvasSource?.id} returnHref={dashboardReturnHref} variant="carousel" />
             </section>
           )}
 
@@ -537,7 +556,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <UpcomingRangeFilter selected={range} />
               </div>
               {upcomingEvents.length > 0
-                ? <EventList events={upcomingEvents} editId={editId} canvasSourceId={canvasSource?.id} />
+                ? <EventList events={upcomingEvents} editId={editId} canvasSourceId={canvasSource?.id} returnHref={dashboardReturnHref} />
                 : <p className="upcoming-empty">이 기간에는 일정이 없어요. 기간을 늘려보세요.</p>}
             </section>
           )}
@@ -545,7 +564,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           {completedEvents.length > 0 && (
             <details className="completed-section" open={Boolean(editId && completedEvents.some((event) => event.id === editId))}>
               <summary><span>완료한 일정</span><span className="count-badge">{completedEvents.length}</span></summary>
-              <EventList events={completedEvents} editId={editId} canvasSourceId={canvasSource?.id} />
+              <EventList events={completedEvents} editId={editId} canvasSourceId={canvasSource?.id} returnHref={dashboardReturnHref} />
             </details>
           )}
         </div>}

@@ -8,7 +8,7 @@ import { transcribeNoticeImage } from "@/lib/ai-parser";
 import { parseKstLocal } from "@/lib/datetime";
 import { canvasSyncErrorInfo, syncCanvasSource, type CanvasSyncErrorCode } from "@/lib/canvas/sync";
 import { OVERRIDABLE_FIELDS, type OverrideField } from "@/lib/canvas/mapping";
-import { createEventInputSchema, updateEventInputSchema } from "@/lib/event-form";
+import { addSavedDashboardState, createEventInputSchema, updateEventInputSchema } from "@/lib/event-form";
 import { getEventDdayTime } from "@/lib/event-time-basis";
 
 async function authenticatedClient() {
@@ -77,7 +77,7 @@ export async function updateEvent(formData: FormData) {
 
   await supabase.from("events").update(patch).eq("id", parsed.data.id);
   revalidatePath("/dashboard");
-  redirect("/dashboard?saved=1");
+  redirect(addSavedDashboardState(parsed.data.return_to));
 }
 
 export async function restoreLearnXOriginal(formData: FormData) {

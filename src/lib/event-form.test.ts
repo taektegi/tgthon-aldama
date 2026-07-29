@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createEventInputSchema } from "./event-form";
+import {
+  addSavedDashboardState,
+  buildDashboardReturnPath,
+  createEventInputSchema,
+  normalizeDashboardReturnPath,
+  updateEventInputSchema,
+} from "./event-form";
 
 const base = { title: "보고서 제출", subject: "자료구조", event_type: "assignment" };
 
@@ -22,5 +28,45 @@ describe("createEventInputSchema", () => {
 
   it("제목은 계속 필수다", () => {
     expect(createEventInputSchema.safeParse({ ...base, title: "" }).success).toBe(false);
+  });
+});
+
+describe("dashboard edit return state", () => {
+  it("목록의 기간, 선택 날짜, 놓친 일정 펼침 상태를 보존한다", () => {
+    expect(buildDashboardReturnPath({
+      view: "list",
+      range: "30",
+      date: "2026-07-31",
+      overdue: true,
+    })).toBe("/dashboard?view=list&range=30&date=2026-07-31&overdue=1");
+  });
+
+  it("캘린더의 월과 선택 날짜를 보존한다", () => {
+    expect(buildDashboardReturnPath({
+      view: "calendar",
+      month: "2026-08",
+      date: "2026-08-17",
+    })).toBe("/dashboard?view=calendar&m=2026-08&date=2026-08-17");
+  });
+
+  it("저장 후에도 기존 화면 상태를 유지하고 saved 표시만 추가한다", () => {
+    expect(addSavedDashboardState("/dashboard?view=calendar&m=2026-08&date=2026-08-17"))
+      .toBe("/dashboard?view=calendar&m=2026-08&date=2026-08-17&saved=1");
+  });
+
+  it("외부 경로와 수정용 임시 파라미터를 서버 액션에 전달하지 않는다", () => {
+    expect(normalizeDashboardReturnPath("https://example.com/dashboard?view=list")).toBe("/dashboard");
+    expect(normalizeDashboardReturnPath("/dashboard?view=list&range=14&edit=event-id&saved=1&unknown=x"))
+      .toBe("/dashboard?view=list&range=14");
+  });
+
+  it("수정 스키마가 안전하게 정규화한 복귀 경로를 반환한다", () => {
+    const parsed = updateEventInputSchema.parse({
+      ...base,
+      id: "1e365bc7-1e2a-491c-915f-52288391ab21",
+      return_to: "/dashboard?view=calendar&m=2026-07&date=2026-07-29&edit=ignored",
+    });
+
+    expect(parsed.return_to).toBe("/dashboard?view=calendar&m=2026-07&date=2026-07-29");
   });
 });
