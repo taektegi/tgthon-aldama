@@ -592,6 +592,24 @@ textarea.field { resize: vertical; min-height: 116px; }
   .page-shell--auth { padding-top: max(24px, env(safe-area-inset-top)); }
   .page-header { align-items: flex-start; }
   .form-grid { grid-template-columns: 1fr; }
+  .dashboard-page--add .form-grid {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dashboard-page--add .form-grid > .label {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .dashboard-page--add .form-grid input.field[type="datetime-local"] {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    inline-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
   form[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
   .card-section { padding: var(--space-4); }
   .dashboard-hero { align-items: center; flex-wrap: wrap; }
@@ -607,6 +625,15 @@ textarea.field { resize: vertical; min-height: 116px; }
   .settings-card .form-actions > * { flex: 1 1 auto; }
   .settings-card .form-actions .button { width: 100%; }
   .candidate-card__fields { grid-template-columns: 1fr; }
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 760px) {
+    .dashboard-page--add .form-grid input.field[type="datetime-local"] {
+      width: -webkit-fill-available;
+      inline-size: -webkit-fill-available;
+    }
+  }
 }
 
 @media (max-width: 390px) {

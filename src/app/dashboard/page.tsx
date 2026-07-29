@@ -311,7 +311,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </div>
         </header>
 
-        {!addMode && <div className="dashboard-alerts">
+        {!addMode && view === "list" && <div className="dashboard-alerts">
           {saved === "1" && <StatusAlert tone="success">일정이 저장되었습니다!</StatusAlert>}
           {connected !== undefined && <StatusAlert tone="success">LearningX 연결 완료 · 일정 {connected}개를 가져왔어요.</StatusAlert>}
           {syncError && syncError !== "TOKEN_INVALID" && <StatusAlert tone="warning">첫 동기화를 완료하지 못했어요. 잠시 후 다시 시도해주세요.</StatusAlert>}
@@ -322,7 +322,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </div>}
 
         {/* 놓친 일정이 있으면 경고 배너, 없으면 칭찬 배너 */}
-        {!addMode && (overdueEvents.length > 0 ? (
+        {!addMode && view === "list" && (overdueEvents.length > 0 ? (
           <section className="dashboard-hero" aria-label="일정 현황">
             <div className="dashboard-hero__icon" aria-hidden="true"><AlertIcon /></div>
             <div className="dashboard-hero__copy">
@@ -347,7 +347,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </section>
         ))}
 
-        {!addMode && overdueOpen && overdueEvents.length > 0 && (
+        {!addMode && view === "list" && overdueOpen && overdueEvents.length > 0 && (
           <section className="overdue-panel" aria-labelledby="overdue-heading">
             <div className="section-heading section-heading--list">
               <h2 id="overdue-heading">놓친 일정</h2>
@@ -359,13 +359,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </section>
         )}
 
-        {!addMode && !canvasSource && (
+        {!addMode && view === "list" && !canvasSource && (
           <div className="dashboard-connect-action">
             <Link href="/connect/learnx" className="button button-muted dashboard-connect-action__button">LearningX 연결</Link>
           </div>
         )}
 
-        {!addMode && canvasSource?.status === "active" && (
+        {!addMode && view === "list" && canvasSource?.status === "active" && (
           <div className="sync-row">
             <LearnXSync
               lastSyncedAt={canvasSource.last_synced_at}
