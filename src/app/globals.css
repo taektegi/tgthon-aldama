@@ -1361,21 +1361,21 @@ body:has(.dashboard-page) {
 
 .dashboard-page .calendar-card__header strong {
   color: var(--foreground);
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 730;
 }
 
 .dashboard-page .calendar-grid__weekday {
   color: #78828c;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .dashboard-page .calendar-day {
-  min-height: 56px;
+  min-height: 66px;
   border-width: 1px;
   border-radius: 11px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 680;
   transition: background-color 120ms ease, transform 120ms ease;
 }
