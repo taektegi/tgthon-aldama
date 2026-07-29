@@ -10,7 +10,8 @@ import { getUrgency } from "@/lib/urgency";
 import { getEventDdayTarget, getEventDdayTime, getEventUrgency } from "@/lib/event-time-basis";
 import { buildDashboardReturnPath } from "@/lib/event-form";
 import { normalizeRange, splitSchedule } from "@/lib/schedule-sections";
-import { MAX_SPAN_LANES, assignSpanLanes, countsInBadge, getWeekSegments, isDueOn, isMultiDay, kstDay, occupiesDay } from "@/lib/calendar-span";
+import { MAX_SPAN_LANES, assignSpanLanes, getWeekSegments, isMultiDay, isSingleDayOn, kstDay, occupiesDay } from "@/lib/calendar-span";
+import { EVENT_TYPES, EVENT_TYPE_LABELS, eventTypeDotClass, eventTypeLabel } from "@/lib/event-type";
 import { getCountdownTarget, getDeadlineLabel, getRelativeDayLabel, isInProgress } from "@/lib/deadline-label";
 import { analyzeNoticeImage, completeAllOverdue, createEvent, deleteEvent, restoreLearnXOriginal, updateEvent } from "./actions";
 import { AppBadge } from "./AppBadge";
@@ -31,27 +32,9 @@ import { EventFormFields } from "./EventFormFields";
  */
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
-type CalendarDayStatus = "overdue" | "today" | "due-soon" | "active" | "completed";
 
-const calendarDayStatusLabels: Record<CalendarDayStatus, string> = {
-  overdue: "마감 초과 일정 포함",
-  today: "오늘 마감 일정 포함",
-  "due-soon": "3일 이내 마감 일정 포함",
-  active: "시작하는 일정 있음",
-  completed: "모든 일정 완료",
-};
-
-// 배지 색은 "마감이 얼마나 급한가"만 말한다. 시작만 있는 날은 급함이 아니므로 항상 active(파랑).
-// 그래야 캘린더를 훑을 때 "색이 진한 날 = 끝내야 하는 날"로 한 가지로 읽힌다.
-function getCalendarDayStatus(events: EventRow[], dayStr: string, todayStr: string): CalendarDayStatus {
-  const activeEvents = events.filter((event) => !event.is_completed);
-  if (activeEvents.length === 0) return "completed";
-  const dueHere = activeEvents.filter((event) => isDueOn(event, dayStr));
-  if (dueHere.some((event) => getUrgency(event.due_at).level === "overdue")) return "overdue";
-  if (dayStr === todayStr && dueHere.length > 0) return "today";
-  if (dueHere.some((event) => ["urgent", "soon"].includes(getUrgency(event.due_at).level))) return "due-soon";
-  return "active";
-}
+/** 한 칸에 찍을 유형 점의 최대 개수. 넘치면 "+N"으로 알린다 */
+const MAX_DAY_DOTS = 3;
 const formatKstDateTime = (iso: string) => new Intl.DateTimeFormat("ko-KR", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -179,17 +162,25 @@ function EventCard({
   const statusLabel = getEventStatusLabel(event, urgency.level);
   const bookmarkLabel = getDeadlineLabel(event);
   const isOngoing = isInProgress(event);
-  const countdownTarget = getCountdownTarget(event) === "start" ? "시작까지" : "마감까지";
-  const bookmarkAriaLabel = event.is_completed ? "완료" : `${countdownTarget} ${bookmarkLabel}`;
+  // 마감까지는 기본이라 굳이 적지 않는다. 시작 기준일 때만 "시작까지"를 붙여
+  // D-day를 지나며 숫자가 커지는 이유를 알려준다
+  const countsToStart = getCountdownTarget(event) === "start";
+  const showCountdownTarget = countsToStart && bookmarkLabel.startsWith("D");
+  const bookmarkAriaLabel = event.is_completed
+    ? "완료"
+    : `${countsToStart ? "시작까지" : "마감까지"} ${bookmarkLabel}`;
 
   if (editId === event.id) return <EventEditor event={event} isCanvasEvent={isCanvasEvent} returnHref={returnHref} />;
 
   return (
     <article className={`event-card event-card--${urgency.level} ${event.is_completed ? "event-card--completed" : ""}`} role="listitem">
-      {/* 시작 기준 일정은 시작 전후에 기준이 바뀌므로 책갈피에 현재 기준을 함께 적는다. */}
-      <span className="event-card__bookmark" aria-label={bookmarkAriaLabel}>
-        {bookmarkLabel.startsWith("D") && (
-          <small className="event-card__bookmark-target" aria-hidden="true">{countdownTarget}</small>
+      {/* 시작 기준 일정은 시작 전후에 세는 대상이 바뀌므로 그때만 기준을 함께 적는다. */}
+      <span
+        className={`event-card__bookmark ${showCountdownTarget ? "event-card__bookmark--with-target" : ""}`}
+        aria-label={bookmarkAriaLabel}
+      >
+        {showCountdownTarget && (
+          <small className="event-card__bookmark-target" aria-hidden="true">시작까지</small>
         )}
         <strong className="event-card__bookmark-value" aria-hidden="true">{bookmarkLabel}</strong>
       </span>
@@ -494,14 +485,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                         const dayStr = dayStrOf(day);
                         const isToday = dayStr === todayStr;
                         const isSelected = dayStr === selectedCalendarDate;
-                        const badgeEvents = events.filter((event) => countsInBadge(event, dayStr));
-                        const dayStatus = badgeEvents.length > 0 ? getCalendarDayStatus(badgeEvents, dayStr, todayStr) : null;
+                        // 하루로 끝나는 일정만 유형 점을 찍는다. 기간 일정은 아래 띠가 제목까지 보여준다
+                        const dotEvents = events.filter((event) => !event.is_completed && isSingleDayOn(event, dayStr));
+                        const shownDots = dotEvents.slice(0, MAX_DAY_DOTS);
+                        const hiddenDots = dotEvents.length - shownDots.length;
                         const spanCount = segments.filter(
                           (segment) => segment.startCol <= col && col < segment.startCol + segment.span,
                         ).length;
-                        const spoken = badgeEvents.length > 0
-                          ? `, 일정 ${badgeEvents.length}개, ${calendarDayStatusLabels[dayStatus!]}`
-                          : spanCount > 0 ? `, 진행 기간 ${spanCount}개` : ", 일정 없음";
+                        const spokenTypes = dotEvents.length > 0
+                          ? `, ${dotEvents.map((event) => eventTypeLabel(event.event_type)).join(" ")} ${dotEvents.length}개`
+                          : "";
+                        const spoken = dotEvents.length === 0 && spanCount === 0
+                          ? ", 일정 없음"
+                          : `${spokenTypes}${spanCount > 0 ? `, 진행 기간 ${spanCount}개` : ""}`;
                         return (
                           <Link
                             key={dayStr}
@@ -512,12 +508,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                           >
                             <span className="calendar-day__head">
                               <span className="calendar-day__number">{day}</span>
-                              {dayStatus && (
-                                <small className={`calendar-day__count calendar-day__count--${dayStatus}`} aria-hidden="true">
-                                  {badgeEvents.length > 9 ? "9+" : badgeEvents.length}
-                                </small>
-                              )}
                             </span>
+                            {shownDots.length > 0 && (
+                              <span className="calendar-day__dots" aria-hidden="true">
+                                {shownDots.map((event) => (
+                                  <i key={event.id} className={`calendar-day__dot ${eventTypeDotClass(event.event_type)}`} />
+                                ))}
+                                {hiddenDots > 0 && <em className="calendar-day__dots-more">+{hiddenDots}</em>}
+                              </span>
+                            )}
                             {hiddenPerColumn[col] > 0 && (
                               <small className="calendar-day__more" aria-hidden="true">+{hiddenPerColumn[col]}</small>
                             )}
@@ -543,11 +542,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 );
               })}
               <div className="calendar-legend" aria-label="일정 상태 안내">
-                <span><i className="calendar-legend__dot calendar-legend__dot--overdue" aria-hidden="true" />마감 초과</span>
-                <span><i className="calendar-legend__dot calendar-legend__dot--today" aria-hidden="true" />오늘 마감</span>
-                <span><i className="calendar-legend__dot calendar-legend__dot--due-soon" aria-hidden="true" />3일 이내</span>
-                <span><i className="calendar-legend__bar calendar-legend__bar--ongoing" aria-hidden="true" />진행중</span>
-                <span><i className="calendar-legend__bar" aria-hidden="true" />예정 기간</span>
+                {EVENT_TYPES.map((type) => (
+                  <span key={type}>
+                    <i className={`calendar-legend__dot ${eventTypeDotClass(type)}`} aria-hidden="true" />
+                    {EVENT_TYPE_LABELS[type]}
+                  </span>
+                ))}
               </div>
             </section>
           );

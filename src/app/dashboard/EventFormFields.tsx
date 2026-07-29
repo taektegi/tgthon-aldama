@@ -1,24 +1,16 @@
 import type { Database } from "@/lib/database.types";
 import { toKstInputValue } from "@/lib/datetime";
+import { EVENT_TYPE_LABELS } from "@/lib/event-type";
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
 type EventFormValue = Pick<EventRow, "subject" | "event_type" | "title" | "d_day_basis" | "starts_at" | "due_at">;
-
-const typeLabels: Record<EventRow["event_type"], string> = {
-  assignment: "과제",
-  exam: "시험",
-  presentation: "발표",
-  application: "신청",
-  event: "행사",
-  other: "기타",
-};
 
 export function EventFormFields({ event, defaultDate }: { event?: EventFormValue; defaultDate?: string }) {
   return (
     <div className="form-grid">
       <div className="subject-type-row form-grid__full">
         <label className="label">과목(작업)<input className="field" name="subject" defaultValue={event?.subject ?? ""} placeholder="예: 컴퓨터 프로그래밍" /></label>
-        <label className="label">유형<select className="field" name="event_type" defaultValue={event?.event_type ?? "assignment"}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label className="label">유형<select className="field" name="event_type" defaultValue={event?.event_type ?? "assignment"}>{Object.entries(EVENT_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       </div>
       <label className="label form-grid__full">제목<input className="field" name="title" defaultValue={event?.title ?? ""} placeholder="예: 보고서 제출" required /></label>
       <div className="time-basis-control form-grid__full">

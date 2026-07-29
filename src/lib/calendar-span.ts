@@ -1,11 +1,11 @@
 // 캘린더에서 일정 하나가 날짜 칸들과 어떤 관계인지 정하는 규칙.
 //
 // 표시 하나가 질문 하나만 답하게 나눈다:
-// - 제목 띠   → 어떤 일이 언제부터 언제까지인가 (시작·마감이 둘 다 있는 기간 일정)
-// - 숫자 배지 → 이 날 끝내야 할 게 몇 개인가 (마감일과 하루짜리 일정)
+// - 제목 띠  → 어떤 일이 언제부터 언제까지인가 (시작·마감이 둘 다 있는 기간 일정)
+// - 유형 점  → 이 날 하루에 할 일이 무엇인가 (과제·시험·발표·신청·행사·기타)
 //
-// 그래서 기간 일정의 시작일과 중간 날은 배지에 세지 않는다.
-// 3일짜리 하나가 3일 내내 "일정 1개"를 만들어 "3일 연속 마감"으로 오해되던 문제를 막는다.
+// 그래서 기간 일정은 점을 찍지 않는다. 띠가 이미 제목까지 보여주기 때문이다.
+// 3일짜리 하나가 3일 내내 "일정 1개"를 만들어 "3일 연속 마감"으로 오해되던 문제도 함께 사라진다.
 //
 // 시각(몇 시)은 보지 않고 KST 달력 날짜만 본다. Canvas due_at은 UTC ISO로 저장되므로
 // 반드시 KST로 변환해서 비교해야 한다.
@@ -66,22 +66,13 @@ export function isMultiDay(event: SpanEvent): boolean {
 }
 
 /**
- * 이 날 개수 배지에 세야 하는 일정인지.
+ * 이 날 하루로 끝나는 일정인지 = 유형 점을 찍을 대상.
  *
- * 기간 일정은 제목이 적힌 띠로 보여주므로 시작일은 배지에서 뺀다. 마감일은 남긴다 —
- * 띠는 "언제부터 언제까지"를 말하고 배지는 "이 날 끝내야 할 게 몇 개"를 말하기 때문이다.
+ * 기간 일정(시작·마감이 다른 날)은 제목이 적힌 띠가 이미 보여주므로 점에서 뺀다.
+ * 그래서 점은 "이 날 하루에 해야 할 일"만 나타낸다.
  */
-export function countsInBadge(event: SpanEvent, dayStr: string): boolean {
-  const role = getSpanRole(event, dayStr);
-  return role === "single" || role === "end";
-}
-
-/** 이 날 마감되는지 (배지를 빨갛게 할지 판단할 때 쓴다) */
-export function isDueOn(event: SpanEvent, dayStr: string): boolean {
-  const role = getSpanRole(event, dayStr);
-  if (role === null) return false;
-  if (!event.due_at) return false;
-  return role === "single" || role === "end";
+export function isSingleDayOn(event: SpanEvent, dayStr: string): boolean {
+  return getSpanRole(event, dayStr) === "single";
 }
 
 /** 한 칸에 그릴 수 있는 띠의 최대 줄 수.
