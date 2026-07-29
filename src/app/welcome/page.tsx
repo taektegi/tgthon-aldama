@@ -12,8 +12,8 @@ export default async function WelcomePage() {
   return (
     <main className="page-shell landing-shell">
       <section className="landing-hero">
-        <p className="eyebrow">ALDAMA · 알다마</p>
-        <h1>알다마 시작하기</h1>
+        <p className="eyebrow">갈피</p>
+        <h1>갈피 시작하기</h1>
 
         <div className="landing-carousel">
           <OnboardingCarousel />

@@ -37,7 +37,7 @@ export default async function ConnectLearnXPage({ searchParams }: { searchParams
         </li>
         <li className="card connect-step">
           <span className="connect-step__number">2</span>
-          <div><h2>토큰 만들기</h2><p><b>+ 새 액세스 토큰</b>을 누르고 목적에 “알다마”를 입력하세요. 만료일은 비워두면 됩니다.</p></div>
+          <div><h2>토큰 만들기</h2><p><b>+ 새 액세스 토큰</b>을 누르고 목적에 “갈피”를 입력하세요. 만료일은 비워두면 됩니다.</p></div>
         </li>
         <li className="card connect-step">
           <span className="connect-step__number">3</span>
