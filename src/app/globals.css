@@ -235,10 +235,22 @@ textarea.field { resize: vertical; min-height: 116px; }
 .label { min-width: 0; display: grid; gap: 7px; color: #3f4247; font-size: 13px; font-weight: 700; }
 .field-help { color: var(--muted); font-size: 12px; font-weight: 500; }
 .form-stack { display: grid; gap: var(--space-4); }
-.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.form-grid { width: 100%; min-width: 0; max-width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
 .form-grid__full { grid-column: 1 / -1; }
 .subject-type-row { min-width: 0; display: grid; grid-template-columns: minmax(0, 7fr) minmax(104px, 3fr); gap: var(--space-3); }
 .time-fields { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.form-grid > *,
+.subject-type-row > *,
+.time-fields > * { min-width: 0; max-width: 100%; }
+.form-grid input.field[type="datetime-local"] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
 .time-basis-control { display: grid; gap: 6px; padding-top: 2px; }
 .time-basis-control p { margin: 0; color: var(--muted); font-size: 12px; font-weight: 500; line-height: 1.5; }
 .time-basis-control label { min-height: 44px; display: flex; align-items: center; gap: 10px; width: fit-content; color: #3f4247; cursor: pointer; font-size: 13px; font-weight: 700; }
@@ -463,7 +475,8 @@ textarea.field { resize: vertical; min-height: 116px; }
 .action-menu__panel .button { width: 100%; justify-content: flex-start; }
 .action-menu__panel form { display: contents; }
 
-.event-card--editing { display: block; padding: var(--space-5); }
+.event-card--editing { width: 100%; min-width: 0; max-width: 100%; display: block; padding: var(--space-5); }
+.event-card--editing .form-stack { width: 100%; min-width: 0; max-width: 100%; }
 .event-card__edit-heading { display: grid; gap: 8px; margin-bottom: var(--space-4); }
 .event-card__edit-heading strong { overflow-wrap: anywhere; }
 
@@ -606,26 +619,8 @@ textarea.field { resize: vertical; min-height: 116px; }
   .page-shell { padding-top: max(22px, env(safe-area-inset-top)); }
   .page-shell--auth { padding-top: max(24px, env(safe-area-inset-top)); }
   .page-header { align-items: flex-start; }
-  .form-grid { grid-template-columns: 1fr; }
-  .dashboard-page--add .form-grid {
-    width: 100%;
-    grid-template-columns: minmax(0, 1fr);
-  }
+  .form-grid { grid-template-columns: minmax(0, 1fr); }
   .time-fields { grid-template-columns: minmax(0, 1fr); }
-  .dashboard-page--add .form-grid > .label {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
-  .dashboard-page--add .form-grid input.field[type="datetime-local"] {
-    display: block;
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    inline-size: 100%;
-    min-inline-size: 0;
-    max-inline-size: 100%;
-  }
   form[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
   .card-section { padding: var(--space-4); }
   .dashboard-hero { align-items: center; flex-wrap: wrap; }
@@ -645,7 +640,7 @@ textarea.field { resize: vertical; min-height: 116px; }
 
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 760px) {
-    .dashboard-page--add .form-grid input.field[type="datetime-local"] {
+    .form-grid input.field[type="datetime-local"] {
       width: -webkit-fill-available;
       inline-size: -webkit-fill-available;
     }
