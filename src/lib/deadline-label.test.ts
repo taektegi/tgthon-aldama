@@ -8,6 +8,7 @@ const event = (due_at: string | null, is_completed = false) => ({ due_at, is_com
 const period = (starts_at: string | null, due_at: string | null, is_completed = false) => ({
   starts_at,
   due_at,
+  d_day_basis: "starts_at" as const,
   is_completed,
 });
 
@@ -23,8 +24,10 @@ describe("getCountdownTarget", () => {
     expect(getCountdownTarget(today("13:00"), NOW)).toBe("due");
     expect(getCountdownTarget(today("15:00"), NOW)).toBe("start");
   });
-  it("시작이 없으면 마감을 센다", () => {
-    expect(getCountdownTarget(period(null, "2026-08-18T23:59:00+09:00"), NOW)).toBe("due");
+  it("시작 기준인데 시작이 없으면 다른 시간으로 대체하지 않는다", () => {
+    const missingStart = period(null, "2026-08-18T23:59:00+09:00");
+    expect(getCountdownTarget(missingStart, NOW)).toBe("start");
+    expect(getDeadlineLabel(missingStart, NOW)).toBe("—");
   });
 });
 
@@ -34,13 +37,13 @@ describe("getDeadlineLabel · 기간 일정", () => {
     expect(getDeadlineLabel(period("2026-08-14T09:00:00+09:00", "2026-08-18T23:59:00+09:00"), NOW)).toBe("D-2");
   });
   it("오늘 시작하는데 아직 시각이 안 됐으면 D-day", () => {
-    expect(getDeadlineLabel(period("2026-08-12T18:00:00+09:00", "2026-08-20T23:59:00+09:00"), NOW)).toBe("D-day");
+    expect(getDeadlineLabel(period("2026-08-12T18:00:00+09:00", "2026-08-20T23:59:00+09:00"), NOW)).toBe("D-Day");
   });
   it("시작 시각이 지나면 마감까지로 바뀐다", () => {
     expect(getDeadlineLabel(period("2026-08-12T10:00:00+09:00", "2026-08-13T23:59:00+09:00"), NOW)).toBe("D-1");
   });
   it("진행 중에 마감이 오늘이면 D-day", () => {
-    expect(getDeadlineLabel(period("2026-08-10T10:00:00+09:00", "2026-08-12T23:59:00+09:00"), NOW)).toBe("D-day");
+    expect(getDeadlineLabel(period("2026-08-10T10:00:00+09:00", "2026-08-12T23:59:00+09:00"), NOW)).toBe("D-Day");
   });
   it("마감이 지나면 D+N", () => {
     expect(getDeadlineLabel(period("2026-08-05T10:00:00+09:00", "2026-08-10T23:59:00+09:00"), NOW)).toBe("D+2");
@@ -79,10 +82,10 @@ describe("isInProgress", () => {
 
 describe("getDeadlineLabel", () => {
   it("오늘 밤 마감은 D-day (예전엔 D-1로 떴다)", () => {
-    expect(getDeadlineLabel(event("2026-08-12T23:59:00+09:00"), NOW)).toBe("D-day");
+    expect(getDeadlineLabel(event("2026-08-12T23:59:00+09:00"), NOW)).toBe("D-Day");
   });
   it("오늘 안에 남은 시간이 적어도 D-day", () => {
-    expect(getDeadlineLabel(event("2026-08-12T14:30:00+09:00"), NOW)).toBe("D-day");
+    expect(getDeadlineLabel(event("2026-08-12T14:30:00+09:00"), NOW)).toBe("D-Day");
   });
   it("내일은 시각과 무관하게 모두 D-1", () => {
     expect(getDeadlineLabel(event("2026-08-13T00:30:00+09:00"), NOW)).toBe("D-1");
@@ -108,7 +111,7 @@ describe("getDeadlineLabel", () => {
     const afterMidnight = new Date("2026-08-13T00:01:00+09:00");
     const due = event("2026-08-13T10:00:00+09:00");
     expect(getDeadlineLabel(due, beforeMidnight)).toBe("D-1");
-    expect(getDeadlineLabel(due, afterMidnight)).toBe("D-day");
+    expect(getDeadlineLabel(due, afterMidnight)).toBe("D-Day");
   });
 });
 

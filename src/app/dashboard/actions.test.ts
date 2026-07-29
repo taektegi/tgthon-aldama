@@ -16,7 +16,7 @@ vi.mock("@/lib/canvas/sync", () => ({
 }));
 vi.mock("@/lib/canvas/mapping", () => ({ OVERRIDABLE_FIELDS: [] }));
 
-import { toggleEvent, type ToggleEventState } from "./actions";
+import { createEvent, toggleEvent, type ToggleEventState } from "./actions";
 
 const initialToggleEventState: ToggleEventState = { status: "idle", message: "" };
 
@@ -42,6 +42,54 @@ function formData(completed: boolean) {
   data.set("completed", String(completed));
   return data;
 }
+
+function mockCreateSupabase() {
+  const insert = vi.fn().mockResolvedValue({ error: null });
+  const from = vi.fn(() => ({ insert }));
+  const supabase = {
+    auth: { getClaims: vi.fn().mockResolvedValue({ data: { claims: { sub: "user-1" } }, error: null }) },
+    from,
+  };
+  mocks.createClient.mockResolvedValue(supabase);
+  return { insert };
+}
+
+function createFormData(startsAt: string, dueAt: string, useStart = false) {
+  const data = new FormData();
+  data.set("title", "시간 입력 테스트");
+  data.set("subject", "자료구조");
+  data.set("event_type", "assignment");
+  data.set("starts_at", startsAt);
+  data.set("due_at", dueAt);
+  if (useStart) data.set("use_start_time_for_d_day", "on");
+  return data;
+}
+
+describe("createEvent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it.each([
+    ["시작 시간만", "2026-07-30T09:00", "", true, "2026-07-30T00:00:00.000Z", null, "starts_at"],
+    ["마감 시간만", "", "2026-07-30T23:59", false, null, "2026-07-30T14:59:00.000Z", "due_at"],
+    ["시작·마감 모두", "2026-07-30T09:00", "2026-07-30T23:59", false, "2026-07-30T00:00:00.000Z", "2026-07-30T14:59:00.000Z", "due_at"],
+  ])("%s 일정을 저장 payload로 변환한다", async (_label, startsAt, dueAt, useStart, expectedStart, expectedDue, expectedBasis) => {
+    const query = mockCreateSupabase();
+
+    await createEvent(createFormData(startsAt, dueAt, useStart));
+
+    expect(query.insert).toHaveBeenCalledWith({
+      user_id: "user-1",
+      title: "시간 입력 테스트",
+      subject: "자료구조",
+      event_type: "assignment",
+      d_day_basis: expectedBasis,
+      starts_at: expectedStart,
+      due_at: expectedDue,
+    });
+  });
+});
 
 describe("toggleEvent", () => {
   beforeEach(() => {

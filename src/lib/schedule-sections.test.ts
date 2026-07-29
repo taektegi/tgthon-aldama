@@ -4,7 +4,12 @@ import { kstDayDiff, normalizeRange, splitSchedule } from "./schedule-sections";
 // 기준 시각: 2026-07-29(수) 낮 12시 KST
 const NOW = new Date("2026-07-29T12:00:00+09:00");
 
-const event = (due_at: string | null, is_completed = false) => ({ due_at, is_completed });
+const event = (due_at: string | null, is_completed = false) => ({
+  starts_at: null,
+  due_at,
+  d_day_basis: "due_at" as const,
+  is_completed,
+});
 
 describe("kstDayDiff", () => {
   it("오늘 밤 마감은 0 (당일)", () => {
@@ -66,6 +71,16 @@ describe("splitSchedule", () => {
   it("마감 없는 일정은 기간과 무관하게 다가오는 일정에 남는다", () => {
     const noDue = event(null);
     expect(splitSchedule([noDue], "7", NOW).upcoming).toEqual([noDue]);
+  });
+
+  it("시작 기준 일정은 시작 시간으로 놓친/임박 구역을 결정한다", () => {
+    const startBased = {
+      starts_at: "2026-07-29T13:00:00+09:00",
+      due_at: "2026-08-20T23:59:00+09:00",
+      d_day_basis: "starts_at" as const,
+      is_completed: false,
+    };
+    expect(splitSchedule([startBased], "7", NOW).priority).toEqual([startBased]);
   });
 
   it("완료한 일정은 어느 구역에도 안 들어간다", () => {
