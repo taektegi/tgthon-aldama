@@ -18,8 +18,8 @@ self.addEventListener("push", (event) => {
   const options = {
     body: data.body || "",
     tag: data.tag,
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    icon: "/icons/galpi-icon-192.png",
+    badge: "/icons/notification-badge-96.png",
     requireInteraction: true,
     data: { url: data.url || "/dashboard" },
   };
