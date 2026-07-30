@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">갈피 앱 아이콘</title>
+  <desc id="desc">흰색 바탕 중앙에 파란색 책갈피가 있는 아이콘</desc>
+  <defs>
+    <linearGradient id="bookmark-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#63b3ff"/>
+      <stop offset="0.52" stop-color="#4d9ff8"/>
+      <stop offset="1" stop-color="#3e82eb"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="#ffffff"/>
+  <path
+    d="M310 258c0-26.51 21.49-48 48-48h308c26.51 0 48 21.49 48 48v548.84c0 19.76-22.5 31.08-38.36 19.29L512 704.54 348.36 826.13C332.5 837.92 310 826.6 310 806.84V258Z"
+    fill="url(#bookmark-gradient)"
+  />
+</svg>
